@@ -1,456 +1,444 @@
-import React, { useState, useEffect } from 'react';
-import { Printer, Phone, Mail, Plus, Trash2, Image as ImageIcon, Save, CheckCircle } from 'lucide-react';
-
-export default function App() {
-  // Menghitung tanggal hari ini dan 5 hari ke depan
-  const getToday = () => new Date().toISOString().split('T')[0];
-  const getDueDate = () => {
-    const due = new Date();
-    due.setDate(due.getDate() + 5);
-    return due.toISOString().split('T')[0];
-  };
-
-  // State untuk data umum invoice
-  const [invoiceData, setInvoiceData] = useState({
-    invoiceNo: `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`,
-    date: getToday(),
-    dueDate: getDueDate(),
-    customerName: 'Ahmad Dahlan',
-    notes: 'Dikirim ke:\nJl. Sudirman No. 45, Jakarta Selatan\n(Mohon dipacking kayu)',
-    shippingCost: 25000,
-    logo: null,
-  });
-
-  const [items, setItems] = useState([
-    { id: Date.now(), description: 'Buku Mahir Pemrograman Web', qty: 2, price: 150000 }
-  ]);
-
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const [isSaving, setIsSaving] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nara Pustaka Invoice Generator</title>
   
-  // State untuk responsivitas Mobile (Skala / Zoom agar muat di HP)
-  const [scale, setScale] = useState(1);
+  <!-- Memuat Tailwind CSS untuk Styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Memuat React dan ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Memuat Babel untuk membaca JSX di dalam Browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .clip-slant { clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); }
+    .clip-slant-reverse { clip-path: polygon(5% 0, 100% 0, 100% 100%, 0 100%); }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-gray-100">
 
-  // Mengunci tampilan untuk Mobile (Auto-scale menyesuaikan lebar HP)
-  useEffect(() => {
-    const updateScale = () => {
-      // 794px adalah lebar standar A4 dalam pixel (210mm)
-      // Jika lebar layar HP kurang dari 1024, skala diperkecil
-      if (window.innerWidth < 1024) {
-        // padding kiri kanan 32px
-        const newScale = (window.innerWidth - 32) / 794; 
-        setScale(newScale < 1 ? newScale : 1);
-      } else {
-        setScale(1);
-      }
-    };
-    
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, []);
+  <!-- Tempat React akan dirender -->
+  <div id="root"></div>
 
-  // Perhitungan Total
-  const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.price)), 0);
-  const total = subtotal + Number(invoiceData.shippingCost);
+  <!-- Kode Aplikasi Utama -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setInvoiceData({ ...invoiceData, [name]: value });
-  };
+    // --- Komponen Ikon (Menggantikan lucide-react agar bisa jalan mandiri) ---
+    const Printer = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect width="12" height="8" x="6" y="14" rx="1"/></svg>;
+    const Phone = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
+    const Mail = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
+    const Plus = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+    const Trash2 = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
+    const ImageIcon = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
+    const Save = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
+    const CheckCircle = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>;
 
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setInvoiceData({ ...invoiceData, logo: imageUrl });
-    }
-  };
+    function App() {
+      const getToday = () => new Date().toISOString().split('T')[0];
+      const getDueDate = () => {
+        const due = new Date();
+        due.setDate(due.getDate() + 5);
+        return due.toISOString().split('T')[0];
+      };
 
-  const handleItemChange = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index][field] = value;
-    setItems(newItems);
-  };
-
-  const addItem = () => {
-    // Membatasi maksimum item agar tidak melebihi satu halaman (opsional namun disarankan)
-    if (items.length >= 8) {
-      showToast('Batas maksimum baris tercapai untuk 1 lembar A4.', 'error');
-      return;
-    }
-    setItems([...items, { id: Date.now(), description: '', qty: 1, price: 0 }]);
-  };
-
-  const removeItem = (index) => {
-    if (items.length > 1) {
-      const newItems = items.filter((_, i) => i !== index);
-      setItems(newItems);
-    }
-  };
-
-  const showToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-  };
-
-  const generatePDF = () => {
-    const element = document.getElementById('invoice-capture');
-    
-    // Konfigurasi ketat agar PDF HANYA 1 halaman
-    const opt = {
-      margin:       0,
-      filename:     `${invoiceData.invoiceNo}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        // Memaksa lebar dan tinggi potret secara akurat untuk 1 halaman A4
-        windowWidth: 794,
-        width: 794,
-        height: 1122 
-      },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    window.html2pdf().set(opt).from(element).save().then(() => {
-      setIsPrinting(false);
-      showToast('PDF berhasil diunduh (1 Lembar)!', 'success');
-    }).catch(error => {
-      setIsPrinting(false);
-      showToast('Gagal membuat PDF', 'error');
-      console.error(error);
-    });
-  };
-
-  const handlePrint = () => {
-    setIsPrinting(true);
-    showToast('Menyiapkan 1 Lembar PDF...', 'success');
-
-    if (!window.html2pdf) {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      script.onload = () => generatePDF();
-      document.body.appendChild(script);
-    } else {
-      generatePDF();
-    }
-  };
-
-  const saveToGoogleSheets = async () => {
-    setIsSaving(true);
-    const GOOGLE_SHEETS_WEBHOOK_URL = ''; 
-
-    const payload = {
-      invoiceNo: invoiceData.invoiceNo,
-      date: invoiceData.date,
-      customerName: invoiceData.customerName,
-      totalAmount: total,
-      itemsSummary: items.map(i => `${i.qty}x ${i.description}`).join(', '),
-      timestamp: new Date().toISOString()
-    };
-
-    if (!GOOGLE_SHEETS_WEBHOOK_URL) {
-      setTimeout(() => {
-        setIsSaving(false);
-        showToast('Simulasi: Data berhasil disimpan ke Spreadsheet!', 'success');
-      }, 1000);
-      return;
-    }
-
-    try {
-      await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
-        method: 'POST',
-        mode: 'no-cors', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const [invoiceData, setInvoiceData] = useState({
+        invoiceNo: `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`,
+        date: getToday(),
+        dueDate: getDueDate(),
+        customerName: 'Ahmad Dahlan',
+        notes: 'Dikirim ke:\nJl. Sudirman No. 45, Jakarta Selatan\n(Mohon dipacking kayu)',
+        shippingCost: 25000,
+        logo: null,
       });
-      setIsSaving(false);
-      showToast('Berhasil dikirim ke Google Sheets!', 'success');
-    } catch (error) {
-      setIsSaving(false);
-      showToast('Gagal mengirim data. Periksa koneksi.', 'error');
-    }
-  };
 
-  const formatDateId = (dateString) => {
-    if (!dateString) return '';
-    const dateObj = new Date(dateString);
-    return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-  };
+      const [items, setItems] = useState([
+        { id: Date.now(), description: 'Buku Mahir Pemrograman Web', qty: 2, price: 150000 }
+      ]);
 
-  return (
-    <div className="min-h-screen bg-gray-100 font-sans text-gray-800 flex flex-col lg:flex-row relative w-full overflow-x-hidden">
-      
-      {toast.show && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white font-medium transition-all duration-300 transform translate-y-0 opacity-100 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
-          <CheckCircle size={20} />
-          {toast.message}
-        </div>
-      )}
+      const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+      const [isSaving, setIsSaving] = useState(false);
+      const [isPrinting, setIsPrinting] = useState(false);
+      const [scale, setScale] = useState(1);
 
-      <style>{`
-        .clip-slant { clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); }
-        .clip-slant-reverse { clip-path: polygon(5% 0, 100% 0, 100% 100%, 0 100%); }
-        /* Memperhalus scrollbar untuk sidebar panel */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-      `}</style>
+      useEffect(() => {
+        const updateScale = () => {
+          if (window.innerWidth < 1024) {
+            const newScale = (window.innerWidth - 32) / 794; 
+            setScale(newScale < 1 ? newScale : 1);
+          } else {
+            setScale(1);
+          }
+        };
+        updateScale();
+        window.addEventListener('resize', updateScale);
+        return () => window.removeEventListener('resize', updateScale);
+      }, []);
 
-      {/* PANEL ADMIN (Kiri/Atas di Mobile) */}
-      <div className="w-full lg:w-1/3 bg-white lg:border-r border-gray-200 p-4 lg:p-6 lg:overflow-y-auto lg:max-h-screen shadow-md z-10 relative custom-scrollbar">
-        <div className="flex items-center gap-3 mb-6 border-b pb-4">
-          <div className="bg-red-600 p-2 rounded-lg text-white">
-            <Printer size={24} />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-800">Admin Panel</h2>
-            <p className="text-xs text-gray-500">Nara Pustaka Invoice Generator</p>
-          </div>
-        </div>
+      const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.price)), 0);
+      const total = subtotal + Number(invoiceData.shippingCost);
 
-        <div className="space-y-4">
-          {/* Logo Upload */}
-          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
-             <div>
-               <h3 className="text-sm font-bold text-gray-700">Logo Invoice</h3>
-               <p className="text-xs text-gray-500">Pilih gambar untuk header</p>
-             </div>
-             <label className="cursor-pointer bg-white border border-gray-300 p-2 rounded text-gray-600 hover:bg-gray-50 transition">
-               <ImageIcon size={18} />
-               <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-             </label>
-          </div>
+      const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInvoiceData({ ...invoiceData, [name]: value });
+      };
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">No. Invoice</label>
-              <input type="text" name="invoiceNo" value={invoiceData.invoiceNo} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal</label>
-              <input type="date" name="date" value={invoiceData.date} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-            </div>
-          </div>
+      const handleLogoUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setInvoiceData({ ...invoiceData, logo: reader.result });
+          };
+          reader.readAsDataURL(file);
+        }
+      };
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Pembeli</label>
-            <input type="text" name="customerName" value={invoiceData.customerName} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-          </div>
+      const handleItemChange = (index, field, value) => {
+        const newItems = [...items];
+        newItems[index][field] = value;
+        setItems(newItems);
+      };
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Catatan / Alamat Tujuan</label>
-            <textarea name="notes" value={invoiceData.notes} onChange={handleInputChange} rows="2" className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"></textarea>
-          </div>
+      const addItem = () => {
+        if (items.length >= 8) {
+          showToast('Batas maksimum baris tercapai untuk 1 lembar A4.', 'error');
+          return;
+        }
+        setItems([...items, { id: Date.now(), description: '', qty: 1, price: 0 }]);
+      };
+
+      const removeItem = (index) => {
+        if (items.length > 1) {
+          const newItems = items.filter((_, i) => i !== index);
+          setItems(newItems);
+        }
+      };
+
+      const showToast = (message, type = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+      };
+
+      const loadHtml2Pdf = async () => {
+        if (window.html2pdf) return window.html2pdf;
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = () => resolve(window.html2pdf);
+          script.onerror = () => reject(new Error('Gagal memuat library html2pdf'));
+          document.body.appendChild(script);
+        });
+      };
+
+      const handlePrint = async () => {
+        setIsPrinting(true);
+        showToast('Menyiapkan 1 Lembar PDF...', 'success');
+
+        try {
+          const html2pdf = await loadHtml2Pdf();
+          const element = document.getElementById('invoice-capture');
           
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal Jatuh Tempo (Otomatis +5 Hari)</label>
-            <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-          </div>
+          const opt = {
+            margin:       0,
+            filename:     `${invoiceData.invoiceNo}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+              scale: 2, 
+              useCORS: true, 
+              logging: false,
+              onclone: (clonedDoc) => {
+                const el = clonedDoc.getElementById('invoice-capture');
+                el.style.transform = 'none'; 
+                el.style.width = '210mm';    
+                el.style.height = '297mm';   
+              }
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          };
 
-          {/* AREA PESANAN */}
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <h3 className="text-sm font-bold text-gray-700 mb-3">Detail Pesanan</h3>
-            
-            {items.map((item, index) => (
-              <div key={item.id} className="mb-3 bg-white p-3 border border-gray-100 rounded shadow-sm relative">
-                {items.length > 1 && (
-                  <button onClick={() => removeItem(index)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 z-10 bg-white rounded">
-                    <Trash2 size={16} />
-                  </button>
-                )}
-                <div className="mb-2">
-                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Deskripsi Item</label>
-                  <input type="text" value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} placeholder="Contoh: Buku..." className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
+          await html2pdf().set(opt).from(element).save();
+          showToast('PDF berhasil diunduh!', 'success');
+        } catch (error) {
+          console.error(error);
+          showToast('Gagal membuat PDF. Periksa koneksi internet.', 'error');
+        } finally {
+          setIsPrinting(false);
+        }
+      };
+
+      const saveToGoogleSheets = async () => {
+        setIsSaving(true);
+        // Simulasi penyimpanan karena URL tidak ada
+        setTimeout(() => {
+          setIsSaving(false);
+          showToast('Simulasi: Data berhasil disimpan!', 'success');
+        }, 1000);
+      };
+
+      const formatDateId = (dateString) => {
+        if (!dateString) return '';
+        const dateObj = new Date(dateString);
+        return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      };
+
+      return (
+        <div className="min-h-screen font-sans text-gray-800 flex flex-col lg:flex-row relative w-full overflow-x-hidden">
+          
+          {toast.show && (
+            <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white font-medium transition-all duration-300 transform translate-y-0 opacity-100 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+              <CheckCircle size={20} />
+              {toast.message}
+            </div>
+          )}
+
+          {/* PANEL ADMIN */}
+          <div className="w-full lg:w-1/3 bg-white lg:border-r border-gray-200 p-4 lg:p-6 lg:overflow-y-auto lg:h-screen shadow-md z-10 relative custom-scrollbar">
+            <div className="flex items-center gap-3 mb-6 border-b pb-4">
+              <div className="bg-red-600 p-2 rounded-lg text-white">
+                <Printer size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Admin Panel</h2>
+                <p className="text-xs text-gray-500">Nara Pustaka Invoice Generator</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
+                 <div>
+                   <h3 className="text-sm font-bold text-gray-700">Logo Invoice</h3>
+                   <p className="text-xs text-gray-500">Pilih gambar untuk header</p>
+                 </div>
+                 <label className="cursor-pointer bg-white border border-gray-300 p-2 rounded text-gray-600 hover:bg-gray-50 transition">
+                   <ImageIcon size={18} />
+                   <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                 </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">No. Invoice</label>
+                  <input type="text" name="invoiceNo" value={invoiceData.invoiceNo} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 mb-1">Harga (Rp)</label>
-                    <input type="number" value={item.price} onChange={(e) => handleItemChange(index, 'price', e.target.value)} className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 mb-1">Jumlah</label>
-                    <input type="number" value={item.qty} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal</label>
+                  <input type="date" name="date" value={invoiceData.date} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
                 </div>
               </div>
-            ))}
 
-            <button onClick={addItem} className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg text-sm font-semibold hover:border-red-400 hover:text-red-500 transition flex items-center justify-center gap-1 mb-4">
-              <Plus size={16} /> Tambah Baris Pesanan
-            </button>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Pembeli</label>
+                <input type="text" name="customerName" value={invoiceData.customerName} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Ongkos Kirim (Rp)</label>
-              <input type="number" name="shippingCost" value={invoiceData.shippingCost} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500 bg-white" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mt-2">
-            <button onClick={saveToGoogleSheets} disabled={isSaving} className={`w-full py-3 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition duration-200 text-xs sm:text-sm ${isSaving ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-200'}`}>
-              <Save size={16} /> {isSaving ? 'Menyimpan...' : 'Simpan Sheet'}
-            </button>
-            <button onClick={handlePrint} disabled={isPrinting} className={`w-full font-bold py-3 px-2 rounded-lg transition duration-200 flex items-center justify-center gap-1 text-xs sm:text-sm shadow-lg shadow-red-200 text-white ${isPrinting ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
-              <Printer size={16} /> {isPrinting ? 'Proses...' : 'Cetak PDF'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {}
-      {/* AREA PREVIEW INVOICE (Kanan/Bawah di Mobile) */}
-      <div className="w-full lg:w-2/3 flex justify-center bg-gray-200 pt-6 pb-20 lg:p-10 lg:overflow-y-auto">
-        
-        {/* Pembungkus Dinamis (Menyesuaikan Tinggi saat Scale di HP) */}
-        <div 
-          className="relative flex justify-center w-full"
-          style={{ height: window.innerWidth < 1024 ? `${1122 * scale}px` : 'auto' }}
-        >
-          {/* 
-            KERTAS INVOICE (Dikunci dengan format ketat A4 Halaman Tunggal)
-            - h-[297mm]: Mengunci tinggi mutlak, mencegah kertas melar.
-            - overflow-hidden: Memotong konten apapun yang melebihi batas 1 lembar A4. 
-          */}
-          <div 
-            id="invoice-capture" 
-            className="invoice-box bg-white w-[210mm] h-[297mm] overflow-hidden shadow-2xl relative flex flex-col origin-top"
-            style={{ transform: `scale(${scale})` }}
-          >
-            
-            {/* HEADER */}
-            <div className="bg-[#1a1c23] pt-12 pb-10 px-12 relative flex justify-between items-start shrink-0">
-              <div className="text-white z-10 max-w-[50%]">
-                <div className="flex items-center gap-4">
-                  {invoiceData.logo ? (
-                    <img src={invoiceData.logo} alt="Company Logo" className="h-16 w-auto object-contain bg-white p-1 rounded" />
-                  ) : (
-                    <div className="w-12 h-12 bg-red-600 flex justify-center items-center rounded-sm font-bold text-2xl italic">
-                      N
-                    </div>
-                  )}
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-wider">NARA <span className="text-red-500">PUSTAKA</span></h1>
-                    <p className="text-[10px] text-gray-400 tracking-widest uppercase">Penerbit & Distributor</p>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Catatan / Alamat Tujuan</label>
+                <textarea name="notes" value={invoiceData.notes} onChange={handleInputChange} rows="2" className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"></textarea>
               </div>
               
-              <div className="text-right text-white z-10">
-                <h2 className="text-4xl font-bold text-red-600 tracking-widest mb-4 uppercase">Invoice</h2>
-                <table className="text-xs text-gray-300 ml-auto">
-                  <tbody>
-                    <tr>
-                      <td className="pr-4 py-1 text-right">Invoice Number:</td>
-                      <td className="text-white font-medium text-right">{invoiceData.invoiceNo}</td>
-                    </tr>
-                    <tr>
-                      <td className="pr-4 py-1 text-right">Invoice Date:</td>
-                      <td className="text-white font-medium text-right">{formatDateId(invoiceData.date)}</td>
-                    </tr>
-                    <tr>
-                      <td className="pr-4 py-1 text-right text-red-400">Due Date:</td>
-                      <td className="text-red-400 font-medium text-right">{formatDateId(invoiceData.dueDate)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal Jatuh Tempo</label>
+                <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
               </div>
-              <div className="absolute -bottom-5 left-0 w-3/5 h-6 bg-red-600 clip-slant"></div>
+
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="text-sm font-bold text-gray-700 mb-3">Detail Pesanan</h3>
+                
+                {items.map((item, index) => (
+                  <div key={item.id} className="mb-3 bg-white p-3 border border-gray-100 rounded shadow-sm relative">
+                    {items.length > 1 && (
+                      <button onClick={() => removeItem(index)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 z-10 bg-white rounded">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    <div className="mb-2">
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Deskripsi Item</label>
+                      <input type="text" value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} placeholder="Contoh: Buku..." className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Harga (Rp)</label>
+                        <input type="number" value={item.price} onChange={(e) => handleItemChange(index, 'price', e.target.value)} className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Jumlah</label>
+                        <input type="number" value={item.qty} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button onClick={addItem} className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg text-sm font-semibold hover:border-red-400 hover:text-red-500 transition flex items-center justify-center gap-1 mb-4">
+                  <Plus size={16} /> Tambah Baris
+                </button>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Ongkos Kirim (Rp)</label>
+                  <input type="number" name="shippingCost" value={invoiceData.shippingCost} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500 bg-white" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button onClick={saveToGoogleSheets} disabled={isSaving} className={`w-full py-3 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition duration-200 text-xs sm:text-sm ${isSaving ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-200'}`}>
+                  <Save size={16} /> Simpan
+                </button>
+                <button onClick={handlePrint} disabled={isPrinting} className={`w-full font-bold py-3 px-2 rounded-lg transition duration-200 flex items-center justify-center gap-1 text-xs sm:text-sm shadow-lg shadow-red-200 text-white ${isPrinting ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
+                  <Printer size={16} /> Cetak PDF
+                </button>
+              </div>
             </div>
+          </div>
 
-            {/* KONTEN UTAMA */}
-            <div className="px-12 py-10 flex-grow relative z-10">
-              <div className="flex justify-between mb-8">
-                <div className="w-1/2 pr-4">
-                  <h3 className="text-red-600 font-bold text-sm mb-2 uppercase tracking-wide">Invoice To:</h3>
-                  <h4 className="text-xl font-bold text-gray-800 mb-1 line-clamp-1">{invoiceData.customerName}</h4>
-                  <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed line-clamp-3">{invoiceData.notes}</p>
-                </div>
-                <div className="w-1/3">
-                  <h3 className="text-red-600 font-bold text-sm mb-2 uppercase tracking-wide">Payment Method</h3>
-                  <div className="text-xs text-gray-800 leading-relaxed bg-gray-50 p-3 rounded border-l-2 border-red-600">
-                    <p className="mb-1 text-gray-500">Transfer Bank</p>
-                    <p>Account No: <span className="font-bold text-sm ml-1">11-047-0742</span></p>
-                    <p>Account Name: <span className="font-bold ml-1">Deby Verona</span></p>
-                  </div>
-                </div>
-              </div>
-
-              {/* TABEL PESANAN DINAMIS */}
-              <table className="w-full text-left mb-8 border-collapse">
-                <thead>
-                  <tr className="bg-red-600 text-white text-xs uppercase tracking-wider">
-                    <th className="py-3 px-4 w-[50%]">Item Description</th>
-                    <th className="py-3 px-4 text-center">Price</th>
-                    <th className="py-3 px-4 text-center">Qty</th>
-                    <th className="py-3 px-4 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="text-sm">
-                  {items.map((item, index) => (
-                    <tr key={item.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                      <td className="py-3 px-4 text-gray-800 font-medium">{item.description || '-'}</td>
-                      <td className="py-3 px-4 text-gray-600 text-center">Rp {Number(item.price).toLocaleString('id-ID')}</td>
-                      <td className="py-3 px-4 text-gray-600 text-center">{item.qty}</td>
-                      <td className="py-3 px-4 text-gray-800 text-right font-medium">Rp {(Number(item.qty) * Number(item.price)).toLocaleString('id-ID')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div className="flex justify-between items-start">
-                <div className="w-1/2 pr-8">
-                  <h3 className="font-bold text-gray-800 mb-4 text-lg">Thank You</h3>
-                  <div className="space-y-2 text-xs text-gray-600">
-                    <p className="flex items-center gap-2"><Phone size={14} className="text-red-600" /> +62 812-3456-7890</p>
-                    <p className="flex items-center gap-2"><Mail size={14} className="text-red-600" /> cs@narapustaka.com</p>
-                  </div>
-                </div>
-
-                <div className="w-[45%]">
-                  <div className="flex justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
-                    <span className="font-medium">Subtotal:</span>
-                    <span>Rp {subtotal.toLocaleString('id-ID')}</span>
-                  </div>
-                  <div className="flex justify-between py-2 text-sm text-gray-600">
-                    <span className="font-medium">Ongkir:</span>
-                    <span>Rp {Number(invoiceData.shippingCost).toLocaleString('id-ID')}</span>
+          {/* AREA PREVIEW INVOICE */}
+          <div className="w-full lg:w-2/3 flex justify-center bg-gray-200 pt-6 pb-20 lg:p-10 lg:overflow-y-auto lg:h-screen">
+            
+            <div className="relative flex justify-center w-full" style={{ height: window.innerWidth < 1024 ? `${1122 * scale}px` : 'auto' }}>
+              
+              {/* KERTAS INVOICE */}
+              <div id="invoice-capture" className="invoice-box bg-white w-[210mm] h-[297mm] overflow-hidden shadow-2xl relative flex flex-col origin-top" style={{ transform: `scale(${scale})` }}>
+                
+                <div className="bg-[#1a1c23] pt-12 pb-10 px-12 relative flex justify-between items-start shrink-0">
+                  <div className="text-white z-10 max-w-[50%]">
+                    <div className="flex items-center gap-4">
+                      {invoiceData.logo ? (
+                        <img src={invoiceData.logo} alt="Logo" className="h-16 w-auto object-contain bg-white p-1 rounded" />
+                      ) : (
+                        <div className="w-12 h-12 bg-red-600 flex justify-center items-center rounded-sm font-bold text-2xl italic">N</div>
+                      )}
+                      <div>
+                        <h1 className="text-2xl font-bold tracking-wider">NARA <span className="text-red-500">PUSTAKA</span></h1>
+                        <p className="text-[10px] text-gray-400 tracking-widest uppercase">Penerbit & Distributor</p>
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="flex justify-between py-4 mt-2 bg-red-600 text-white font-bold px-4 text-lg rounded-sm shadow-md">
-                    <span>Total:</span>
-                    <span>Rp {total.toLocaleString('id-ID')}</span>
+                  <div className="text-right text-white z-10">
+                    <h2 className="text-4xl font-bold text-red-600 tracking-widest mb-4 uppercase">Invoice</h2>
+                    <table className="text-xs text-gray-300 ml-auto">
+                      <tbody>
+                        <tr>
+                          <td className="pr-4 py-1 text-right">Invoice Number:</td>
+                          <td className="text-white font-medium text-right">{invoiceData.invoiceNo}</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-4 py-1 text-right">Invoice Date:</td>
+                          <td className="text-white font-medium text-right">{formatDateId(invoiceData.date)}</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-4 py-1 text-right text-red-400">Due Date:</td>
+                          <td className="text-red-400 font-medium text-right">{formatDateId(invoiceData.dueDate)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="absolute -bottom-5 left-0 w-3/5 h-6 bg-red-600 clip-slant"></div>
+                </div>
+
+                <div className="px-12 py-10 flex-grow relative z-10">
+                  <div className="flex justify-between mb-8">
+                    <div className="w-1/2 pr-4">
+                      <h3 className="text-red-600 font-bold text-sm mb-2 uppercase tracking-wide">Invoice To:</h3>
+                      <h4 className="text-xl font-bold text-gray-800 mb-1 line-clamp-1">{invoiceData.customerName}</h4>
+                      <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed line-clamp-3">{invoiceData.notes}</p>
+                    </div>
+                    <div className="w-1/3">
+                      <h3 className="text-red-600 font-bold text-sm mb-2 uppercase tracking-wide">Payment Method</h3>
+                      <div className="text-xs text-gray-800 leading-relaxed bg-gray-50 p-3 rounded border-l-2 border-red-600">
+                        <p className="mb-1 text-gray-500">Transfer Bank</p>
+                        <p>Account No: <span className="font-bold text-sm ml-1">11-047-0742</span></p>
+                        <p>Account Name: <span className="font-bold ml-1">Deby Verona</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <table className="w-full text-left mb-8 border-collapse">
+                    <thead>
+                      <tr className="bg-red-600 text-white text-xs uppercase tracking-wider">
+                        <th className="py-3 px-4 w-[50%]">Item Description</th>
+                        <th className="py-3 px-4 text-center">Price</th>
+                        <th className="py-3 px-4 text-center">Qty</th>
+                        <th className="py-3 px-4 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {items.map((item, index) => (
+                        <tr key={item.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'}`}>
+                          <td className="py-3 px-4 text-gray-800 font-medium">{item.description || '-'}</td>
+                          <td className="py-3 px-4 text-gray-600 text-center">Rp {Number(item.price).toLocaleString('id-ID')}</td>
+                          <td className="py-3 px-4 text-gray-600 text-center">{item.qty}</td>
+                          <td className="py-3 px-4 text-gray-800 text-right font-medium">Rp {(Number(item.qty) * Number(item.price)).toLocaleString('id-ID')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="flex justify-between items-start">
+                    <div className="w-1/2 pr-8">
+                      <h3 className="font-bold text-gray-800 mb-4 text-lg">Thank You</h3>
+                      <div className="space-y-2 text-xs text-gray-600">
+                        <p className="flex items-center gap-2"><Phone size={14} className="text-red-600" /> +62 812-3456-7890</p>
+                        {/* EMAIL DITAMBAHKAN DI SINI */}
+                        <p className="flex items-center gap-2"><Mail size={14} className="text-red-600" /> narapustaka1@gmail.com</p>
+                      </div>
+                    </div>
+
+                    <div className="w-[45%]">
+                      <div className="flex justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
+                        <span className="font-medium">Subtotal:</span>
+                        <span>Rp {subtotal.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between py-2 text-sm text-gray-600">
+                        <span className="font-medium">Ongkir:</span>
+                        <span>Rp {Number(invoiceData.shippingCost).toLocaleString('id-ID')}</span>
+                      </div>
+                      
+                      <div className="flex justify-between py-4 mt-2 bg-red-600 text-white font-bold px-4 text-lg rounded-sm shadow-md">
+                        <span>Total:</span>
+                        <span>Rp {total.toLocaleString('id-ID')}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                <div className="px-12 pb-8 mt-auto relative shrink-0">
+                  <div className="flex justify-between items-end mb-6">
+                    <div className="w-3/5 pr-10">
+                      <h4 className="font-bold text-gray-800 text-sm mb-2">Terms & Conditions:</h4>
+                      <p className="text-[10px] text-gray-500 leading-relaxed text-justify">
+                        Pembayaran harap ditransfer secara penuh ke rekening yang tertera di atas. 
+                        Sertakan nomor invoice pada berita acara transfer. Barang pesanan akan dikirim setelah 
+                        dana dikonfirmasi masuk. Kesalahan alamat yang diberikan oleh pembeli di luar tanggung jawab kami.
+                      </p>
+                    </div>
+                    <div className="w-1/3 text-center pt-8">
+                      <div className="border-b border-gray-400 mb-2 w-full"></div>
+                      <p className="text-xs font-bold text-gray-800">Admin Nara Pustaka</p>
+                      <p className="text-[10px] text-gray-500">Authorized Signature</p>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 left-0 w-full h-10 bg-[#1a1c23]">
+                    <div className="absolute bottom-0 right-0 w-1/3 h-10 bg-red-600 clip-slant-reverse"></div>
+                  </div>
+                </div>
+
               </div>
             </div>
-
-            {/* FOOTER */}
-            <div className="px-12 pb-8 mt-auto relative shrink-0">
-              <div className="flex justify-between items-end mb-6">
-                <div className="w-3/5 pr-10">
-                  <h4 className="font-bold text-gray-800 text-sm mb-2">Terms & Conditions:</h4>
-                  <p className="text-[10px] text-gray-500 leading-relaxed text-justify">
-                    Pembayaran harap ditransfer secara penuh ke rekening yang tertera di atas. 
-                    Sertakan nomor invoice pada berita acara transfer. Barang pesanan akan dikirim setelah 
-                    dana dikonfirmasi masuk. Kesalahan alamat yang diberikan oleh pembeli di luar tanggung jawab kami.
-                  </p>
-                </div>
-                <div className="w-1/3 text-center pt-8">
-                  <div className="border-b border-gray-400 mb-2 w-full"></div>
-                  <p className="text-xs font-bold text-gray-800">Admin Nara Pustaka</p>
-                  <p className="text-[10px] text-gray-500">Authorized Signature</p>
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-0 w-full h-10 bg-[#1a1c23]">
-                <div className="absolute bottom-0 right-0 w-1/3 h-10 bg-red-600 clip-slant-reverse"></div>
-              </div>
-            </div>
-
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
