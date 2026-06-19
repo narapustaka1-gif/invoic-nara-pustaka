@@ -8,15 +8,19 @@
   <!-- Memuat Tailwind CSS untuk Styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Memuat React dan ReactDOM -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Memuat React dan ReactDOM (Versi Stabil dari cdnjs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
   
-  <!-- Memuat Babel untuk membaca JSX di dalam Browser -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Memuat Babel Standalone (Versi Stabil dari cdnjs) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin></script>
+
+  <!-- Memuat html2pdf secara statis di head untuk mencegah error appendChild saat runtime -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin></script>
   
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    /* Clip path dipertahankan, berfungsi baik di html2pdf versi terbaru */
     .clip-slant { clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); }
     .clip-slant-reverse { clip-path: polygon(5% 0, 100% 0, 100% 100%, 0 100%); }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -29,18 +33,24 @@
   <div id="root"></div>
 
   <!-- Kode Aplikasi Utama -->
-  <script type="text/babel">
+  <script type="text/babel" data-presets="env,react">
     const { useState, useEffect } = React;
 
-    // --- Komponen Ikon (Menggantikan lucide-react agar bisa jalan mandiri) ---
+    // --- Komponen Ikon ---
     const Printer = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect width="12" height="8" x="6" y="14" rx="1"/></svg>;
     const Phone = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
     const Mail = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
     const Plus = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
     const Trash2 = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
-    const ImageIcon = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
     const Save = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
     const CheckCircle = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>;
+    
+    // Ikon Logo Pustaka/Buku Permanen
+    const BookLogo = ({ size=48, className="" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+      </svg>
+    );
 
     function App() {
       const getToday = () => new Date().toISOString().split('T')[0];
@@ -57,7 +67,6 @@
         customerName: 'Ahmad Dahlan',
         notes: 'Dikirim ke:\nJl. Sudirman No. 45, Jakarta Selatan\n(Mohon dipacking kayu)',
         shippingCost: 25000,
-        logo: null,
       });
 
       const [items, setItems] = useState([
@@ -71,6 +80,7 @@
 
       useEffect(() => {
         const updateScale = () => {
+          // Basis 794px untuk render A4 agar sangat presisi
           if (window.innerWidth < 1024) {
             const newScale = (window.innerWidth - 32) / 794; 
             setScale(newScale < 1 ? newScale : 1);
@@ -89,17 +99,6 @@
       const handleInputChange = (e) => {
         const { name, value } = e.target;
         setInvoiceData({ ...invoiceData, [name]: value });
-      };
-
-      const handleLogoUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setInvoiceData({ ...invoiceData, logo: reader.result });
-          };
-          reader.readAsDataURL(file);
-        }
       };
 
       const handleItemChange = (index, field, value) => {
@@ -128,48 +127,49 @@
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
       };
 
-      const loadHtml2Pdf = async () => {
-        if (window.html2pdf) return window.html2pdf;
-        return new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-          script.onload = () => resolve(window.html2pdf);
-          script.onerror = () => reject(new Error('Gagal memuat library html2pdf'));
-          document.body.appendChild(script);
-        });
-      };
-
+      // LOGIKA CETAK PDF YANG DIPERBAIKI (Sudah tidak memuat script secara dinamis)
       const handlePrint = async () => {
         setIsPrinting(true);
         showToast('Menyiapkan 1 Lembar PDF...', 'success');
 
         try {
-          const html2pdf = await loadHtml2Pdf();
+          const html2pdf = window.html2pdf;
+          if (!html2pdf) {
+            throw new Error('Pustaka pdf belum termuat di browser.');
+          }
+
           const element = document.getElementById('invoice-capture');
           
           const opt = {
             margin:       0,
             filename:     `${invoiceData.invoiceNo}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
+            image:        { type: 'jpeg', quality: 1 }, // Kualitas maksimum
             html2canvas:  { 
-              scale: 2, 
+              scale: 2, // Resolusi render ganda agar teks tajam
               useCORS: true, 
               logging: false,
+              letterRendering: true,
+              windowWidth: 794, // Mengunci lebar render kanvas
               onclone: (clonedDoc) => {
                 const el = clonedDoc.getElementById('invoice-capture');
+                // Mereset skala agar PDF tidak ikut mengecil seperti di layar HP
                 el.style.transform = 'none'; 
-                el.style.width = '210mm';    
-                el.style.height = '297mm';   
+                el.style.width = '794px';    
+                el.style.height = '1123px';  
+                el.style.boxShadow = 'none'; // Hilangkan bayangan saat di-PDF
               }
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            // Format A4 dalam satuan Pixel (794x1123) untuk akurasi 100%
+            jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' },
+            // Menghindari elemen terpotong acak
+            pagebreak: { mode: 'avoid-all' }
           };
 
           await html2pdf().set(opt).from(element).save();
           showToast('PDF berhasil diunduh!', 'success');
         } catch (error) {
           console.error(error);
-          showToast('Gagal membuat PDF. Periksa koneksi internet.', 'error');
+          showToast('Gagal membuat PDF. Coba segarkan halaman.', 'error');
         } finally {
           setIsPrinting(false);
         }
@@ -177,7 +177,6 @@
 
       const saveToGoogleSheets = async () => {
         setIsSaving(true);
-        // Simulasi penyimpanan karena URL tidak ada
         setTimeout(() => {
           setIsSaving(false);
           showToast('Simulasi: Data berhasil disimpan!', 'success');
@@ -213,17 +212,6 @@
             </div>
 
             <div className="space-y-4">
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
-                 <div>
-                   <h3 className="text-sm font-bold text-gray-700">Logo Invoice</h3>
-                   <p className="text-xs text-gray-500">Pilih gambar untuk header</p>
-                 </div>
-                 <label className="cursor-pointer bg-white border border-gray-300 p-2 rounded text-gray-600 hover:bg-gray-50 transition">
-                   <ImageIcon size={18} />
-                   <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                 </label>
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">No. Invoice</label>
@@ -301,19 +289,18 @@
           {/* AREA PREVIEW INVOICE */}
           <div className="w-full lg:w-2/3 flex justify-center bg-gray-200 pt-6 pb-20 lg:p-10 lg:overflow-y-auto lg:h-screen">
             
-            <div className="relative flex justify-center w-full" style={{ height: window.innerWidth < 1024 ? `${1122 * scale}px` : 'auto' }}>
+            <div className="relative flex justify-center w-full" style={{ height: window.innerWidth < 1024 ? `${1123 * scale}px` : 'auto' }}>
               
               {/* KERTAS INVOICE */}
-              <div id="invoice-capture" className="invoice-box bg-white w-[210mm] h-[297mm] overflow-hidden shadow-2xl relative flex flex-col origin-top" style={{ transform: `scale(${scale})` }}>
+              <div id="invoice-capture" className="invoice-box bg-white w-[794px] h-[1123px] overflow-hidden shadow-2xl relative flex flex-col origin-top" style={{ transform: `scale(${scale})` }}>
                 
                 <div className="bg-[#1a1c23] pt-12 pb-10 px-12 relative flex justify-between items-start shrink-0">
                   <div className="text-white z-10 max-w-[50%]">
                     <div className="flex items-center gap-4">
-                      {invoiceData.logo ? (
-                        <img src={invoiceData.logo} alt="Logo" className="h-16 w-auto object-contain bg-white p-1 rounded" />
-                      ) : (
-                        <div className="w-12 h-12 bg-red-600 flex justify-center items-center rounded-sm font-bold text-2xl italic">N</div>
-                      )}
+                      {/* Logo Permanen Nara Pustaka */}
+                      <div className="bg-red-600 p-2 rounded flex justify-center items-center shadow-lg">
+                        <BookLogo size={36} className="text-white" />
+                      </div>
                       <div>
                         <h1 className="text-2xl font-bold tracking-wider">NARA <span className="text-red-500">PUSTAKA</span></h1>
                         <p className="text-[10px] text-gray-400 tracking-widest uppercase">Penerbit & Distributor</p>
@@ -386,7 +373,6 @@
                       <h3 className="font-bold text-gray-800 mb-4 text-lg">Thank You</h3>
                       <div className="space-y-2 text-xs text-gray-600">
                         <p className="flex items-center gap-2"><Phone size={14} className="text-red-600" /> +62 812-3456-7890</p>
-                        {/* EMAIL DITAMBAHKAN DI SINI */}
                         <p className="flex items-center gap-2"><Mail size={14} className="text-red-600" /> narapustaka1@gmail.com</p>
                       </div>
                     </div>
