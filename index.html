@@ -1,287 +1,771 @@
-<!-- ... existing code ... -->
-        /* Pengaturan Khusus PDF Container */
-        .pdf-header { border-bottom: 2px solid #1E3A5F; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .pdf-header h2 { margin: 0; line-height: 1; }
-        .pdf-header p { margin: 4px 0 0 0; }
-        .pdf-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
-        table.pdf-table { width: 100%; border-collapse: collapse; }
-        table.pdf-table th { background-color: #1E3A5F; color: white; padding: 10px 12px; font-weight: 600; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #1E3A5F; }
-        table.pdf-table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 12px; color: #334155; }
-        table.pdf-table tr:nth-child(even) { background-color: #F8FAFC; }
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Dokumen - Nara Pustaka</title>
+    
+    <!-- Load Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Load html2pdf.js untuk export PDF langsung -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- CSS Khusus untuk menjamin ukuran A4 -->
+    <style>
+        body {
+            background-color: #f3f4f6;
+        }
+
+        /* Container khusus A4 */
+        .a4-container {
+            width: 210mm;
+            height: 296.5mm; /* Dibatasi tegas agar PDF hanya 1 halaman */
+            overflow: hidden; /* Mencegah elemen luber menjadi halaman kedua */
+            padding: 15mm 20mm;
+            background: white;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            margin: 0 auto;
+            position: relative;
+        }
+
+        @media print {
+            @page { size: A4 portrait; margin: 0; }
+            body { 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+                background: white !important; 
+            }
+            .no-print { display: none !important; }
+            .a4-container { 
+                box-shadow: none !important; 
+                margin: 0 !important;
+                width: 100% !important;
+                padding: 15mm 20mm !important;
+                height: 296.5mm !important;
+                overflow: hidden !important;
+            }
+            .wrapper-preview {
+                overflow: visible !important;
+                padding: 0 !important;
+            }
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
-<!-- ... existing code ... -->
-                            <tbody id="transactionTable" class="text-sm font-medium text-slate-700 divide-y divide-slate-100">
-                                <tr><td colspan="5" class="py-8 text-center"><i class="fa-solid fa-spinner animate-spin text-nara-blue text-xl"></i></td></tr>
-                            </tbody>
-                        </table>
+<body class="min-h-screen flex flex-col lg:flex-row p-2 sm:p-4 gap-6 font-sans text-gray-900">
+
+    <!-- PANEL ADMIN (Kiri) - Tidak ikut tercetak -->
+    <div class="no-print w-full lg:w-[420px] bg-white p-5 sm:p-6 rounded-xl shadow-lg border border-gray-200 h-fit lg:sticky lg:top-4 shrink-0 flex flex-col max-h-[calc(100vh-2rem)]">
+        
+        <!-- Tab Navigasi -->
+        <div class="flex gap-2 mb-4 bg-gray-100 p-1.5 rounded-lg shrink-0">
+            <button id="btn-tab-invoice" onclick="switchTab('invoice')" class="flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-blue-700 transition-all">Invoice Pembeli</button>
+            <button id="btn-tab-royalty" onclick="switchTab('royalty')" class="flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:text-gray-700 transition-all">Royalti Penulis</button>
+        </div>
+
+        <!-- Scrollable Form Area -->
+        <div class="overflow-y-auto pr-2 custom-scrollbar flex-1 pb-4">
+            
+            <!-- FORM INVOICE -->
+            <div id="form-invoice" class="space-y-4 text-sm">
+                <!-- Logo Upload -->
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <label class="font-semibold text-gray-700 block mb-2">Logo Perusahaan</label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" id="input-inv-logo" accept="image/*" class="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
+                        <button id="btn-inv-remove-logo" class="hidden bg-red-100 text-red-600 px-3 py-1.5 rounded-md text-xs font-bold hover:bg-red-200" onclick="removeLogo()">Hapus</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-semibold text-gray-600">No. Invoice</label>
+                        <input type="text" id="input-inv-invoiceNo" class="w-full border p-2 rounded mt-1 outline-blue-500" />
+                    </div>
+                    <div>
+                        <label class="font-semibold text-gray-600">Tanggal</label>
+                        <input type="text" id="input-inv-date" class="w-full border p-2 rounded mt-1 outline-blue-500" />
+                    </div>
+                </div>
+                <div>
+                    <label class="font-semibold text-gray-600">Jatuh Tempo</label>
+                    <input type="text" id="input-inv-dueDate" class="w-full border p-2 rounded mt-1 outline-blue-500" />
+                </div>
+                <hr/>
+                <div>
+                    <label class="font-semibold text-gray-600">Nama Pembeli</label>
+                    <input type="text" id="input-inv-customerName" class="w-full border p-2 rounded mt-1 outline-blue-500" />
+                </div>
+                <div>
+                    <label class="font-semibold text-gray-600">Alamat Kirim</label>
+                    <textarea id="input-inv-address" class="w-full border p-2 rounded mt-1 outline-blue-500" rows="2"></textarea>
+                </div>
+                <div>
+                    <label class="font-semibold text-gray-600">Catatan (Opsional)</label>
+                    <input type="text" id="input-inv-notes" class="w-full border p-2 rounded mt-1 outline-blue-500" placeholder="Contoh: Packing kayu" />
+                </div>
+                <hr/>
+                
+                <!-- Info Rekening Bank Nara Pustaka (Untuk Invoice) -->
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <label class="font-semibold text-gray-700 block mb-2">Rekening Penerimaan (Nara Pustaka)</label>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Nama Bank</label>
+                            <input type="text" id="input-inv-bankName" class="w-full border p-2 text-sm rounded mt-1 outline-blue-500" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">No. Rekening</label>
+                            <input type="text" id="input-inv-bankAccount" class="w-full border p-2 text-sm rounded mt-1 outline-blue-500" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Atas Nama</label>
+                            <input type="text" id="input-inv-bankAccountName" class="w-full border p-2 text-sm rounded mt-1 outline-blue-500" />
+                        </div>
+                    </div>
+                </div>
+                <hr/>
+                
+                <div class="flex justify-between items-center mt-2">
+                    <label class="font-semibold text-gray-600">Daftar Barang</label>
+                    <button onclick="addInvItem()" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-200 transition-colors shadow-sm flex items-center gap-1">
+                        <span class="text-lg leading-none">+</span> Tambah
+                    </button>
+                </div>
+                
+                <div id="admin-inv-items-container" class="space-y-3 mt-3 border-l-2 border-blue-200 pl-3"></div>
+
+                <hr class="mt-4"/>
+                <div>
+                    <label class="font-semibold text-gray-600">Ongkir (Rp)</label>
+                    <input type="number" id="input-inv-shipping" class="w-full border p-2 rounded mt-1 outline-blue-500" />
+                </div>
+            </div>
+
+            <!-- FORM ROYALTI -->
+            <div id="form-royalty" class="hidden space-y-4 text-sm">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-semibold text-gray-600">No. Tanda Terima</label>
+                        <input type="text" id="input-roy-receiptNo" class="w-full border p-2 rounded mt-1 outline-purple-500" />
+                    </div>
+                    <div>
+                        <label class="font-semibold text-gray-600">Tanggal</label>
+                        <input type="text" id="input-roy-date" class="w-full border p-2 rounded mt-1 outline-purple-500" />
+                    </div>
+                </div>
+                <hr/>
+                <div>
+                    <label class="font-semibold text-gray-600">Nama Penulis</label>
+                    <input type="text" id="input-roy-authorName" class="w-full border p-2 rounded mt-1 outline-purple-500" />
+                </div>
+                <div>
+                    <label class="font-semibold text-gray-600">Periode Penjualan</label>
+                    <input type="text" id="input-roy-period" class="w-full border p-2 rounded mt-1 outline-purple-500" placeholder="Contoh: Jan - Jun 2026" />
+                </div>
+                <hr/>
+                
+                <!-- Info Rekening Bank Penulis (Untuk Tujuan Transfer) -->
+                <div class="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                    <label class="font-semibold text-gray-700 block mb-2">Tujuan Transfer (Rekening Penulis)</label>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Nama Bank</label>
+                            <input type="text" id="input-roy-bankName" class="w-full border p-2 text-sm rounded mt-1 outline-purple-500" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">No. Rekening</label>
+                            <input type="text" id="input-roy-bankAccount" class="w-full border p-2 text-sm rounded mt-1 outline-purple-500" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Atas Nama</label>
+                            <input type="text" id="input-roy-bankAccountName" class="w-full border p-2 text-sm rounded mt-1 outline-purple-500" />
+                        </div>
+                    </div>
+                </div>
+                <hr/>
+                
+                <div class="flex justify-between items-center mt-2">
+                    <label class="font-semibold text-gray-600">Rincian Royalti</label>
+                    <button onclick="addRoyItem()" class="bg-purple-100 text-purple-700 px-3 py-1.5 rounded-md text-xs font-bold hover:bg-purple-200 transition-colors shadow-sm flex items-center gap-1">
+                        <span class="text-lg leading-none">+</span> Tambah Buku
+                    </button>
+                </div>
+                
+                <div id="admin-roy-items-container" class="space-y-3 mt-3 border-l-2 border-purple-200 pl-3"></div>
+
+                <hr class="mt-4"/>
+                <div>
+                    <label class="font-semibold text-gray-600">Potongan / Pajak (Rp) - Opsional</label>
+                    <input type="number" id="input-roy-tax" class="w-full border p-2 rounded mt-1 outline-purple-500" />
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Download Button -->
+        <button id="btn-download-pdf" onclick="downloadPDF()" class="w-full shrink-0 bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 flex items-center justify-center gap-2 mt-4 transition-colors shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect width="12" height="8" x="6" y="14"></rect>
+            </svg>
+            <span id="txt-download-btn">Unduh Invoice PDF</span>
+        </button>
+    </div>
+
+    <!-- PREVIEW AREA (Kanan) -->
+    <div class="wrapper-preview flex-1 overflow-x-auto pb-8 w-full flex justify-center lg:justify-start">
+        
+        <!-- PREVIEW 1: INVOICE -->
+        <div id="preview-invoice" class="a4-container flex flex-col text-gray-800 shrink-0">
+            
+            <!-- Header (Logo & Title) -->
+            <div class="flex justify-between items-start mb-10 pb-6 border-b border-gray-100">
+                <div class="flex items-center gap-4">
+                    <div id="inv-logo-container" class="w-14 h-14 bg-red-700 text-white flex items-center justify-center text-3xl font-black rounded-sm overflow-hidden flex-shrink-0">
+                        <span id="inv-logo-text">N</span>
+                        <img id="inv-logo-img" src="" class="hidden w-full h-full object-contain bg-white" alt="Logo" />
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-black tracking-tight text-gray-900 leading-none mb-1">NARA PUSTAKA</h1>
+                        <p class="text-sm font-semibold tracking-widest text-gray-500 uppercase">Penerbit & Distributor</p>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-4xl font-bold tracking-widest text-gray-300">INVOICE</h2>
+                </div>
+            </div>
+
+            <!-- Info Box: Bill To & Invoice Info -->
+            <div class="flex justify-between items-start mb-8 gap-6">
+                <!-- Kiri: Kepada siapa -->
+                <div class="w-1/2">
+                    <h3 class="text-xs font-bold uppercase text-gray-400 mb-1">INVOICE TO:</h3>
+                    <p id="disp-inv-customerName" class="font-bold text-lg mb-2 text-gray-900 leading-tight"></p>
+                    
+                    <h3 class="text-xs font-bold uppercase text-gray-400 mb-1 mt-3">Dikirim ke:</h3>
+                    <p id="disp-inv-address" class="text-sm text-gray-700 leading-snug"></p>
+                    <p id="disp-inv-notes" class="text-sm text-gray-700 mt-1 italic"></p>
+                </div>
+
+                <!-- Kanan: Detail Invoice -->
+                <div class="w-1/3">
+                    <table class="w-full text-sm">
+                        <tbody>
+                            <tr>
+                                <td class="py-1 text-gray-500 font-semibold">Invoice Number:</td>
+                                <td id="disp-inv-invoiceNo" class="py-1 text-right font-bold text-gray-900 break-all"></td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 text-gray-500 font-semibold">Invoice Date:</td>
+                                <td id="disp-inv-date" class="py-1 text-right font-semibold text-gray-700"></td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 text-gray-500 font-semibold">Due Date:</td>
+                                <td id="disp-inv-dueDate" class="py-1 text-right font-semibold text-gray-700"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tabel Barang -->
+            <div class="mb-8">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-y-2 border-gray-900 text-left text-sm uppercase">
+                            <th class="py-3 font-bold text-gray-700">ITEM DESCRIPTION</th>
+                            <th class="py-3 font-bold text-gray-700 text-left w-32">PRICE</th>
+                            <th class="py-3 font-bold text-gray-700 text-center w-16">QTY</th>
+                            <th class="py-3 font-bold text-gray-700 text-right w-36">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disp-inv-items-tbody"></tbody>
+                </table>
+            </div>
+
+            <!-- Bagian Bawah: Payment Method & Totals -->
+            <div class="flex justify-between items-start mb-8 gap-6">
+                <!-- Payment Method -->
+                <div class="w-1/2">
+                    <h3 class="font-bold text-gray-800 mb-2 uppercase text-sm border-b pb-1 inline-block border-gray-300">PAYMENT METHOD</h3>
+                    <div class="text-sm text-gray-700 space-y-1 mt-1">
+                        <p id="disp-inv-bankName"></p>
+                        <p>Account No: <span id="disp-inv-bankAccount" class="font-bold text-black text-base tracking-wider"></span></p>
+                        <p>Account Name: <span id="disp-inv-bankAccountName" class="font-bold text-black"></span></p>
+                    </div>
+                </div>
+
+                <!-- Totals -->
+                <div class="w-1/3">
+                    <table class="w-full text-sm">
+                        <tbody>
+                            <tr>
+                                <td class="py-1.5 text-gray-600">Subtotal:</td>
+                                <td id="disp-inv-subtotal" class="py-1.5 text-right font-medium"></td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-gray-600">Ongkir:</td>
+                                <td id="disp-inv-shipping" class="py-1.5 text-right font-medium"></td>
+                            </tr>
+                            <tr class="border-t-2 border-gray-900">
+                                <td class="py-2.5 text-gray-800 font-bold text-base">Total:</td>
+                                <td id="disp-inv-total" class="py-2.5 text-right font-bold text-base text-red-700"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer Invoice -->
+            <div class="mt-auto pt-8 grid grid-cols-2 gap-8 text-sm">
+                <div class="pr-4">
+                    <h3 class="font-bold text-gray-800 mb-1 text-xs uppercase">Terms & Conditions:</h3>
+                    <p class="text-[11px] text-gray-500 leading-relaxed text-justify mb-4">
+                        Pembayaran harap ditransfer secara penuh ke rekening yang tertera di atas. Sertakan
+                        nomor invoice pada berita acara transfer. Barang pesanan akan dikirim setelah dana
+                        dikonfirmasi masuk. Kesalahan alamat yang diberikan oleh pembeli di luar tanggung jawab kami.
+                    </p>
+                    <div class="mt-6">
+                        <p class="font-black text-lg text-red-700 mb-0.5 tracking-wide">Thank You</p>
+                        <p class="text-gray-700 font-bold text-sm">+62 812-3456-7890</p>
+                        <p class="text-gray-500 text-sm">narapustaka1@gmail.com</p>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end justify-end">
+                    <div class="text-center w-48">
+                        <p class="mb-16 text-gray-800 font-medium">Admin Nara Pustaka</p>
+                        <div class="border-b-2 border-gray-900 w-full mb-1"></div>
+                        <p class="font-bold text-xs uppercase text-gray-500">Authorized Signature</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PREVIEW 2: ROYALTI -->
+        <div id="preview-royalty" class="a4-container hidden flex-col text-gray-800 shrink-0">
+            <!-- Header (Logo & Title) -->
+            <div class="flex justify-between items-start mb-10 pb-6 border-b border-gray-100">
+                <div class="flex items-center gap-4">
+                    <div id="roy-logo-container" class="w-14 h-14 bg-red-700 text-white flex items-center justify-center text-3xl font-black rounded-sm overflow-hidden flex-shrink-0">
+                        <span id="roy-logo-text">N</span>
+                        <img id="roy-logo-img" src="" class="hidden w-full h-full object-contain bg-white" alt="Logo" />
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-black tracking-tight text-gray-900 leading-none mb-1">NARA PUSTAKA</h1>
+                        <p class="text-sm font-semibold tracking-widest text-gray-500 uppercase">Penerbit & Distributor</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-3xl font-bold tracking-widest text-gray-300">BUKTI BAYAR</h2>
+                    <p class="text-xs font-bold tracking-widest text-purple-600 uppercase mt-1">Royalti Penulis</p>
+                </div>
+            </div>
+
+            <!-- Info Box: Paid To & Receipt Info -->
+            <div class="flex justify-between items-start mb-8 gap-6">
+                <!-- Kiri: Dibayarkan Kepada -->
+                <div class="w-1/2 bg-purple-50 p-4 rounded-lg border border-purple-100">
+                    <h3 class="text-xs font-bold uppercase text-purple-600 mb-2">DIBAYARKAN KEPADA:</h3>
+                    <p id="disp-roy-authorName" class="font-bold text-xl mb-3 text-gray-900 leading-tight uppercase"></p>
+                    
+                    <div class="text-sm text-gray-700 space-y-0.5">
+                        <p class="text-xs text-gray-500 mb-1">Tujuan Transfer:</p>
+                        <p id="disp-roy-bankName" class="font-semibold"></p>
+                        <p>No. Rek: <span id="disp-roy-bankAccount" class="font-bold text-black tracking-wider"></span></p>
+                        <p>A/n: <span id="disp-roy-bankAccountName" class="font-semibold"></span></p>
+                    </div>
+                </div>
+
+                <!-- Kanan: Detail Struk -->
+                <div class="w-1/3">
+                    <table class="w-full text-sm">
+                        <tbody>
+                            <tr>
+                                <td class="py-1 text-gray-500 font-semibold">No. Dokumen:</td>
+                                <td id="disp-roy-receiptNo" class="py-1 text-right font-bold text-gray-900 break-all"></td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 text-gray-500 font-semibold">Tanggal Bayar:</td>
+                                <td id="disp-roy-date" class="py-1 text-right font-semibold text-gray-700"></td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 text-gray-500 font-semibold">Periode:</td>
+                                <td id="disp-roy-period" class="py-1 text-right font-bold text-purple-700 bg-purple-100 px-2 rounded"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tabel Rincian Royalti -->
+            <div class="mb-8 min-h-[200px]">
+                <h3 class="font-bold text-gray-800 mb-3 uppercase text-sm border-b-2 border-gray-900 pb-1 inline-block">Rincian Penjualan & Royalti</h3>
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b-2 border-gray-200 text-left text-sm uppercase">
+                            <th class="py-3 font-bold text-gray-600">JUDUL BUKU</th>
+                            <th class="py-3 font-bold text-gray-600 text-center w-24">QTY (EKS)</th>
+                            <th class="py-3 font-bold text-gray-600 text-right w-32">ROYALTI/EKS</th>
+                            <th class="py-3 font-bold text-gray-600 text-right w-36">TOTAL (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disp-roy-items-tbody"></tbody>
+                </table>
+            </div>
+
+            <!-- Bagian Bawah: Totals Royalti -->
+            <div class="flex justify-end mb-8 gap-6">
+                <!-- Totals -->
+                <div class="w-[300px]">
+                    <table class="w-full text-sm bg-gray-50 p-2 rounded">
+                        <tbody>
+                            <tr>
+                                <td class="py-2 px-3 text-gray-600">Total Royalti Kotor:</td>
+                                <td id="disp-roy-subtotal" class="py-2 px-3 text-right font-medium"></td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 px-3 text-gray-600">Potongan/Pajak:</td>
+                                <td id="disp-roy-tax" class="py-2 px-3 text-right font-medium text-red-600"></td>
+                            </tr>
+                            <tr class="border-t-2 border-gray-900 bg-purple-100 rounded-b">
+                                <td class="py-3 px-3 text-gray-900 font-black text-base">NET DIBAYARKAN:</td>
+                                <td id="disp-roy-total" class="py-3 px-3 text-right font-black text-lg text-purple-800"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Footer Royalti -->
+            <div class="mt-auto pt-8 grid grid-cols-2 gap-8 text-sm">
+                <div class="pr-4">
+                    <p class="text-[11px] text-gray-500 leading-relaxed text-justify mb-4">
+                        Dokumen ini adalah bukti sah pembayaran royalti dari Nara Pustaka kepada Penulis untuk periode yang tercantum.
+                        Dana telah ditransfer ke rekening yang tertera di atas. Jika terdapat ketidaksesuaian data penjualan, 
+                        harap menghubungi tim administrasi kami maksimal 7 hari kerja setelah dokumen ini diterbitkan.
+                    </p>
+                    <div class="mt-6">
+                        <p class="font-black text-lg text-purple-700 mb-0.5 tracking-wide">Terima Kasih</p>
+                        <p class="text-gray-700 font-bold text-sm">+62 812-3456-7890</p>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col items-end justify-end">
+                    <div class="text-center w-48">
+                        <p class="mb-16 text-gray-800 font-medium">Divisi Keuangan</p>
+                        <div class="border-b-2 border-gray-900 w-full mb-1"></div>
+                        <p class="font-bold text-xs uppercase text-gray-500">Nara Pustaka</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</main>
 
-<!-- === TEMPLATE HIDDEN PDF PRO === -->
-<!-- Diperbaiki: Dimensi absolut A4 untuk presisi cetak -->
-<div class="absolute top-0 left-[-10000px] pointer-events-none" style="z-index:-9999;">
-    <div id="pdfProContainer" class="w-[210mm] bg-white font-sans">
-        <!-- Isi PDF akan di-generate dinamis oleh JavaScript sebelum dicetak -->
-    </div>
-</div>
+    <!-- JavaScript Logic -->
+    <script>
+        // --- 1. State Management ---
+        let currentTab = 'invoice'; // 'invoice' | 'royalty'
+        let logoUrl = null;
 
-<script>
-    // --- KONFIGURASI API SPREADSHEET ---
-<!-- ... existing code ... -->
-    // =======================================================================
-    // --- GENERATOR PDF SUPER PREMIUM ---
-    // =======================================================================
-    async function exportToPDF() {
-        if(currentFilterData.length === 0) {
-            showToast("Tidak ada data untuk dicetak!", "error"); return;
-        }
-        showLoading(true, "Menyiapkan Dokumen...", "Menyusun struktur laporan PDF Profesional...");
+        const invData = {
+            invoiceNo: 'INV-202606-19-10',
+            date: '19 Juni 2026',
+            dueDate: '24 Juni 2026',
+            customerName: 'Ahmad Dahlan',
+            address: 'Jl. Sudirman No. 45, Jakarta Selatan',
+            notes: '(Mohon dipacking kayu)',
+            bankName: 'Transfer Bank BCA',
+            bankAccount: '11-047-0742',
+            bankAccountName: 'Deby Verona',
+            items: [
+                { title: 'Buku Mahir Pemrograman Web', price: 150000, qty: 2 }
+            ],
+            shipping: 25000,
+        };
 
-        // 1. Persiapan Data
-        let incomeData = []; let expenseData = [];
-        let totalIncome = 0; let totalExpense = 0;
-        let monthlyStats = {}; let categoryStats = {};
-        
-        let sortedData = [...currentFilterData].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const royData = {
+            receiptNo: 'ROY-202606-001',
+            date: '20 Juni 2026',
+            authorName: 'Ahmad Dahlan',
+            period: 'Januari - Juni 2026',
+            bankName: 'Bank Mandiri',
+            bankAccount: '9876543210',
+            bankAccountName: 'Ahmad Dahlan',
+            items: [
+                { title: 'Buku Mahir Pemrograman Web', royaltyPerQty: 15000, qty: 150 },
+                { title: 'Logika Algoritma Dasar', royaltyPerQty: 10000, qty: 75 }
+            ],
+            tax: 0,
+        };
 
-        sortedData.forEach(t => {
-            const amt = parseFloat(t.amount);
-            const mKey = t.date.substring(0, 7); // YYYY-MM
+        const formatRp = (number) => {
+            return Number(number).toLocaleString('id-ID');
+        };
+
+        // --- 2. Tab Logic ---
+        function switchTab(tab) {
+            currentTab = tab;
             
-            if(!monthlyStats[mKey]) monthlyStats[mKey] = { in: 0, out: 0 };
-            
-            if (t.type === 'income') {
-                incomeData.push(t); totalIncome += amt;
-                monthlyStats[mKey].in += amt;
+            const btnInv = document.getElementById('btn-tab-invoice');
+            const btnRoy = document.getElementById('btn-tab-royalty');
+            const formInv = document.getElementById('form-invoice');
+            const formRoy = document.getElementById('form-royalty');
+            const prevInv = document.getElementById('preview-invoice');
+            const prevRoy = document.getElementById('preview-royalty');
+            const btnDownloadText = document.getElementById('txt-download-btn');
+
+            if (tab === 'invoice') {
+                btnInv.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-blue-700 transition-all";
+                btnRoy.className = "flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:text-gray-700 transition-all";
+                
+                formInv.classList.remove('hidden');
+                formRoy.classList.add('hidden');
+                
+                prevInv.classList.remove('hidden');
+                prevInv.classList.add('flex');
+                prevRoy.classList.add('hidden');
+                prevRoy.classList.remove('flex');
+
+                btnDownloadText.innerText = "Unduh Invoice PDF";
             } else {
-                expenseData.push(t); totalExpense += amt;
-                monthlyStats[mKey].out += amt;
-                let cat = t.desc.split(' ')[0] || 'Lainnya';
-                categoryStats[cat] = (categoryStats[cat] || 0) + amt;
+                btnRoy.className = "flex-1 py-2 text-sm font-bold rounded-md bg-white shadow-sm text-purple-700 transition-all";
+                btnInv.className = "flex-1 py-2 text-sm font-bold rounded-md text-gray-500 hover:text-gray-700 transition-all";
+                
+                formRoy.classList.remove('hidden');
+                formInv.classList.add('hidden');
+                
+                prevRoy.classList.remove('hidden');
+                prevRoy.classList.add('flex');
+                prevInv.classList.add('hidden');
+                prevInv.classList.remove('flex');
+
+                btnDownloadText.innerText = "Unduh Bukti Royalti PDF";
+            }
+            applyLogoToPreview();
+        }
+
+        // --- 3. Logo Logic (Shared) ---
+        document.getElementById('input-inv-logo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    logoUrl = event.target.result;
+                    applyLogoToPreview();
+                    document.getElementById('btn-inv-remove-logo').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
             }
         });
 
-        const netProfit = totalIncome - totalExpense;
-        const tax = totalIncome * 0.005;
-        const marginLaba = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : 0;
-        const rasioBiaya = totalIncome > 0 ? ((totalExpense / totalIncome) * 100).toFixed(1) : 0;
-        
-        let topExpenseCat = Object.keys(categoryStats).sort((a, b) => categoryStats[b] - categoryStats[a])[0] || '-';
-        let bestMonth = Object.keys(monthlyStats).sort((a, b) => monthlyStats[b].in - monthlyStats[a].in)[0] || '-';
+        function removeLogo() {
+            logoUrl = null;
+            document.getElementById('input-inv-logo').value = ""; 
+            document.getElementById('btn-inv-remove-logo').classList.add('hidden');
+            applyLogoToPreview();
+        }
 
-        const filterYear = document.getElementById('filterYear').value;
-        const filterMonth = document.getElementById('filterMonth').value;
-        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-        let periodeText = filterYear !== 'all' ? (filterMonth !== 'all' ? `${monthNames[parseInt(filterMonth)-1]} ${filterYear}` : `Tahun ${filterYear}`) : "Seluruh Periode";
-        let dateToday = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-
-        // Fungsi Wrapper Halaman Presisi A4
-        const getPageWrapper = (content, title, pageNum, isFirst = false) => `
-            <div class="${isFirst ? '' : 'html2pdf__page-break'} w-[210mm] min-h-[297mm] p-[15mm] box-border bg-white flex flex-col relative mx-auto">
-                <div class="pdf-header text-[#1E3A5F]">
-                    <div>
-                        <h2 class="text-[22px] font-black tracking-tight"><i class="fa-solid fa-book-open-reader mr-2"></i>NARA PUSTAKA</h2>
-                        <p class="text-[11px] text-slate-500 font-medium">Laporan: ${title} | Periode: ${periodeText}</p>
-                    </div>
-                    <div>
-                        <span class="text-[10px] font-bold bg-[#1E3A5F] text-white py-1.5 px-3 rounded-full uppercase tracking-widest shadow-sm">Dokumen Rahasia</span>
-                    </div>
-                </div>
+        function applyLogoToPreview() {
+            const prefixes = ['inv', 'roy'];
+            prefixes.forEach(p => {
+                const img = document.getElementById(`${p}-logo-img`);
+                const txt = document.getElementById(`${p}-logo-text`);
+                const cont = document.getElementById(`${p}-logo-container`);
                 
-                <div class="flex-1 mt-6 mb-6 w-full">
-                    ${content}
-                </div>
-                
-                <div class="pdf-footer mt-auto w-full">
-                    <span>Dicetak Otomatis pada ${dateToday}</span>
-                    <span>Halaman ${pageNum}</span>
-                </div>
-            </div>
-        `;
+                if(!img || !txt || !cont) return;
 
-        const container = document.getElementById('pdfProContainer');
-        container.innerHTML = '';
+                if (logoUrl) {
+                    img.src = logoUrl;
+                    img.classList.remove('hidden');
+                    txt.classList.add('hidden');
+                    cont.classList.remove('bg-red-700', 'p-0');
+                    cont.classList.add('bg-transparent');
+                } else {
+                    img.classList.add('hidden');
+                    img.src = "";
+                    txt.classList.remove('hidden');
+                    cont.classList.add('bg-red-700');
+                    cont.classList.remove('bg-transparent');
+                }
+            });
+        }
 
-        // --- KONTEN HALAMAN ---
-        let content1 = `
-            <div class="text-center mb-10 mt-4">
-                <h1 class="text-[26px] font-black text-[#1E3A5F] uppercase tracking-widest leading-tight">Laporan Keuangan & Perpajakan</h1>
-                <p class="text-base text-slate-600 mt-2 font-medium">Nara Pustaka (Deby Verona)</p>
-            </div>
-            <div class="grid grid-cols-2 gap-6 mb-8">
-                <div class="bg-[#F8FAFC] border border-slate-200 p-6 rounded-2xl shadow-sm"><div class="text-emerald-500 mb-2"><i class="fa-solid fa-arrow-trend-up text-3xl"></i></div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Pendapatan</p><p class="text-2xl font-black text-[#1E3A5F] mt-1">${formatRupiah(totalIncome)}</p></div>
-                <div class="bg-[#F8FAFC] border border-slate-200 p-6 rounded-2xl shadow-sm"><div class="text-rose-500 mb-2"><i class="fa-solid fa-arrow-trend-down text-3xl"></i></div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Pengeluaran</p><p class="text-2xl font-black text-[#1E3A5F] mt-1">${formatRupiah(totalExpense)}</p></div>
-                <div class="bg-[#1E3A5F] text-white p-6 rounded-2xl shadow-md"><div class="text-sky-300 mb-2"><i class="fa-solid fa-wallet text-3xl"></i></div><p class="text-[11px] font-bold text-sky-200 uppercase tracking-wider">Laba Bersih / Saldo Akhir</p><p class="text-2xl font-black mt-1">${formatRupiah(netProfit)}</p></div>
-                <div class="bg-amber-50 border border-amber-200 p-6 rounded-2xl shadow-sm"><div class="text-amber-500 mb-2"><i class="fa-solid fa-building-columns text-3xl"></i></div><p class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Estimasi Pajak UMKM (0.5%)</p><p class="text-2xl font-black text-amber-900 mt-1">${formatRupiah(tax)}</p></div>
-            </div>
-            <div class="border border-slate-200 p-5 rounded-2xl shadow-sm bg-white">
-                <h4 class="text-sm font-bold text-slate-700 mb-4 text-center tracking-wide">Grafik Ringkasan Pemasukan & Pengeluaran</h4>
-                <div style="height: 250px; width: 100%; position: relative;"><canvas id="pdfChartSummary"></canvas></div>
-            </div>
-        `;
-
-        let page2Rows = incomeData.map(t => `<tr><td>${t.date}</td><td>${t.desc}</td><td>Pemasukan</td><td align="right" class="font-bold">${formatRupiah(t.amount)}</td></tr>`).join('');
-        let content2 = `
-            <table class="w-full text-sm pdf-table border-collapse">
-                <thead><tr><th width="20%">Tanggal</th><th width="45%">Deskripsi</th><th width="15%">Kategori</th><th width="20%" class="text-right">Nominal</th></tr></thead>
-                <tbody>
-                    ${page2Rows || '<tr><td colspan="4" class="text-center italic py-4">Tidak ada data pendapatan</td></tr>'}
-                    <tr class="bg-emerald-50"><td colspan="3" class="font-bold text-right text-[#1E3A5F]">TOTAL PENDAPATAN</td><td class="font-black text-right text-emerald-700">${formatRupiah(totalIncome)}</td></tr>
-                </tbody>
-            </table>
-        `;
-
-        let page3Rows = expenseData.map(t => `<tr><td>${t.date}</td><td>${t.desc}</td><td>Pengeluaran</td><td align="right" class="font-bold">${formatRupiah(t.amount)}</td></tr>`).join('');
-        let content3 = `
-            <table class="w-full text-sm pdf-table border-collapse">
-                <thead><tr><th width="20%">Tanggal</th><th width="45%">Deskripsi</th><th width="15%">Kategori</th><th width="20%" class="text-right">Nominal</th></tr></thead>
-                <tbody>
-                    ${page3Rows || '<tr><td colspan="4" class="text-center italic py-4">Tidak ada data pengeluaran</td></tr>'}
-                    <tr class="bg-rose-50"><td colspan="3" class="font-bold text-right text-[#1E3A5F]">TOTAL PENGELUARAN</td><td class="font-black text-right text-rose-700">${formatRupiah(totalExpense)}</td></tr>
-                </tbody>
-            </table>
-        `;
-
-        let content4 = `
-            <div class="border border-[#1E3A5F] rounded-xl overflow-hidden mt-4">
-                <div class="bg-[#1E3A5F] text-white p-4 text-center font-bold text-lg tracking-widest">FORMAT LABA RUGI STANDAR</div>
-                <div class="p-8 space-y-6">
-                    <div class="flex justify-between border-b border-slate-200 pb-2"><span class="font-semibold text-slate-700 text-lg">Pendapatan Operasional</span><span class="font-bold text-lg">${formatRupiah(totalIncome)}</span></div>
-                    <div class="flex justify-between border-b border-slate-200 pb-2"><span class="font-semibold text-slate-700 text-lg pl-6">(-) Total Pengeluaran / Beban</span><span class="font-bold text-rose-600 text-lg">(${formatRupiah(totalExpense)})</span></div>
-                    <div class="flex justify-between bg-slate-50 p-4 rounded-lg mt-4 border border-slate-200"><span class="font-black text-[#1E3A5F] text-xl uppercase">Laba Bersih Usaha</span><span class="font-black text-[#1E3A5F] text-xl">${formatRupiah(netProfit)}</span></div>
-                </div>
-            </div>
-        `;
-
-        let content5 = `
-            <table class="w-full text-sm pdf-table border-collapse mb-8">
-                <thead><tr><th>Uraian Arus Kas</th><th class="text-right">Nominal</th></tr></thead>
-                <tbody>
-                    <tr><td class="font-semibold">Saldo Awal Periode</td><td align="right">Rp 0</td></tr>
-                    <tr class="text-emerald-700"><td class="font-semibold pl-4">(+) Kas Masuk (Pendapatan)</td><td align="right">${formatRupiah(totalIncome)}</td></tr>
-                    <tr class="text-rose-700"><td class="font-semibold pl-4">(-) Kas Keluar (Pengeluaran)</td><td align="right">(${formatRupiah(totalExpense)})</td></tr>
-                    <tr class="bg-[#F8FAFC]"><td class="font-black text-[#1E3A5F] text-base uppercase">Saldo Akhir Kas</td><td align="right" class="font-black text-[#1E3A5F] text-base">${formatRupiah(netProfit)}</td></tr>
-                </tbody>
-            </table>
-            <div class="border border-slate-200 p-4 rounded-2xl">
-                <h4 class="text-sm font-bold text-slate-700 mb-2 text-center">Tren Saldo Kas</h4>
-                <div style="height: 200px; width: 100%; position: relative;"><canvas id="pdfChartCashflow"></canvas></div>
-            </div>
-        `;
-
-        let content6 = `
-            <div class="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl mb-8">
-                <h4 class="font-bold text-amber-800 text-lg flex items-center gap-2"><i class="fa-solid fa-circle-info"></i> Informasi Perpajakan</h4>
-                <p class="text-sm text-amber-700 mt-2 leading-relaxed">Nilai pajak yang tertera merupakan hasil perhitungan otomatis berdasarkan data transaksi. Perhitungan merujuk pada regulasi <b>PPh Final UMKM (PP 55/2022) sebesar 0,5% dari peredaran bruto (Omzet)</b>.</p>
-            </div>
-            <table class="w-full text-base pdf-table border-collapse">
-                <thead><tr><th colspan="2" class="text-center text-lg tracking-widest">DASAR PERHITUNGAN PPh FINAL</th></tr></thead>
-                <tbody>
-                    <tr><td class="font-bold w-2/3 py-4">Total Omzet / Peredaran Bruto</td><td align="right" class="font-bold py-4">${formatRupiah(totalIncome)}</td></tr>
-                    <tr><td class="font-bold py-4">Dasar Pengenaan Pajak (DPP)</td><td align="right" class="font-bold py-4">${formatRupiah(totalIncome)}</td></tr>
-                    <tr><td class="font-bold py-4 text-slate-500">Tarif PPh Final UMKM</td><td align="right" class="font-bold py-4 text-slate-500">0.5%</td></tr>
-                    <tr class="bg-rose-50 border-y-2 border-rose-200"><td class="font-black text-rose-800 text-lg py-5 uppercase">Pajak PPh Terutang</td><td align="right" class="font-black text-rose-800 text-xl py-5">${formatRupiah(tax)}</td></tr>
-                </tbody>
-            </table>
-        `;
-
-        let content7 = `
-            <div class="grid grid-cols-2 gap-6 mt-4">
-                <div class="border border-slate-200 p-6 rounded-2xl text-center shadow-sm">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Persentase Laba (Margin)</p>
-                    <p class="text-4xl font-black text-emerald-600">${marginLaba}%</p>
-                </div>
-                <div class="border border-slate-200 p-6 rounded-2xl text-center shadow-sm">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Rasio Biaya Operasional</p>
-                    <p class="text-4xl font-black text-rose-600">${rasioBiaya}%</p>
-                </div>
-                <div class="border border-slate-200 p-6 rounded-2xl text-center shadow-sm col-span-2">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Kategori Pengeluaran Terbesar</p>
-                    <p class="text-2xl font-bold text-[#1E3A5F] capitalize">"${topExpenseCat}"</p>
-                </div>
-                <div class="bg-[#1E3A5F] text-white p-6 rounded-2xl text-center shadow-md">
-                    <p class="text-xs font-bold text-sky-200 uppercase tracking-widest mb-2">Bulan Terbaik</p>
-                    <p class="text-2xl font-black">${bestMonth !== '-' ? bestMonth : 'N/A'}</p>
-                </div>
-            </div>
-        `;
-
-        let content8 = `
-            <div class="flex-1 flex flex-col justify-center items-center text-center px-10 h-[200mm]">
-                <i class="fa-solid fa-file-signature text-6xl text-slate-200 mb-6"></i>
-                <p class="text-lg leading-relaxed font-medium text-slate-600">"Laporan Keuangan dan Perpajakan ini dibuat secara otomatis oleh <b>Sistem Keuangan Nara Pustaka</b> berdasarkan rekam data transaksi digital yang tercatat pada database cloud secara akurat dan transparan."</p>
-                
-                <div class="mt-20 w-full flex justify-end pr-10">
-                    <div class="text-center">
-                        <p class="text-sm text-slate-500 mb-16">Jakarta, ${dateToday}</p>
-                        <p class="font-black text-xl text-[#1E3A5F] underline underline-offset-4">Deby Verona</p>
-                        <p class="text-sm font-bold text-slate-500 mt-1">Pemilik Nara Pustaka</p>
+        // --- 4. Invoice Logic ---
+        function renderInvAdminItems() {
+            const container = document.getElementById('admin-inv-items-container');
+            container.innerHTML = '';
+            invData.items.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "bg-gray-50 p-3 rounded-lg border border-gray-200 relative";
+                itemDiv.innerHTML = `
+                    <button onclick="removeInvItem(${index})" class="absolute top-2 right-2 text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-sm">✕</button>
+                    <div class="mb-2 pr-8">
+                        <label class="text-xs font-semibold text-gray-600">Nama Barang ${index + 1}</label>
+                        <input type="text" value="${item.title}" oninput="updateInvItem(${index}, 'title', this.value)" class="w-full border p-2 text-sm rounded mt-1 outline-blue-500 bg-white" />
                     </div>
-                </div>
-            </div>
-        `;
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Harga (Rp)</label>
+                            <input type="number" value="${item.price}" oninput="updateInvItem(${index}, 'price', this.value)" class="w-full border p-2 text-sm rounded mt-1 outline-blue-500 bg-white" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Qty</label>
+                            <input type="number" value="${item.qty}" oninput="updateInvItem(${index}, 'qty', this.value)" class="w-full border p-2 text-sm rounded mt-1 outline-blue-500 bg-white" />
+                        </div>
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
 
-        // Gabungkan seluruh halaman
-        container.innerHTML = 
-            getPageWrapper(content1, 'Ringkasan Eksekutif', 1, true) + 
-            getPageWrapper(content2, 'Rincian Pendapatan', 2) + 
-            getPageWrapper(content3, 'Rincian Pengeluaran', 3) + 
-            getPageWrapper(content4, 'Laporan Laba Rugi', 4) + 
-            getPageWrapper(content5, 'Laporan Arus Kas', 5) + 
-            getPageWrapper(content6, 'Perhitungan Pajak', 6) + 
-            getPageWrapper(content7, 'Analisis Bisnis', 7) + 
-            getPageWrapper(content8, 'Lembar Pengesahan', 8);
+        function addInvItem() { invData.items.push({ title: '', price: 0, qty: 1 }); renderInvAdminItems(); renderInvoice(); }
+        function removeInvItem(index) { invData.items.splice(index, 1); renderInvAdminItems(); renderInvoice(); }
+        function updateInvItem(index, field, value) { invData.items[index][field] = field === 'title' ? value : Number(value); renderInvoice(); }
 
-        // 2. Render Grafik (Chart.js)
-        await new Promise(resolve => setTimeout(resolve, 100)); // Beri waktu DOM render
-        
-        let labelsMonth = Object.keys(monthlyStats).sort();
-        let dataIn = labelsMonth.map(m => monthlyStats[m].in);
-        let dataOut = labelsMonth.map(m => monthlyStats[m].out);
-        let cumulative = []; let current = 0;
-        labelsMonth.forEach(m => { current += (monthlyStats[m].in - monthlyStats[m].out); cumulative.push(current); });
+        function renderInvoice() {
+            const fields = ['invoiceNo', 'date', 'dueDate', 'customerName', 'address', 'notes', 'shipping', 'bankName', 'bankAccount', 'bankAccountName'];
+            fields.forEach(f => {
+                document.getElementById(`input-inv-${f}`).value = invData[f];
+                if(document.getElementById(`disp-inv-${f}`)) {
+                    document.getElementById(`disp-inv-${f}`).innerText = invData[f];
+                }
+            });
 
-        if(chartInstanceSummary) chartInstanceSummary.destroy();
-        chartInstanceSummary = new Chart(document.getElementById('pdfChartSummary'), {
-            type: 'bar',
-            data: { labels: labelsMonth, datasets: [
-                { label: 'Pendapatan', data: dataIn, backgroundColor: '#10b981' },
-                { label: 'Pengeluaran', data: dataOut, backgroundColor: '#f43f5e' }
-            ]},
-            options: { animation: false, responsive: true, maintainAspectRatio: false }
+            const tbody = document.getElementById('disp-inv-items-tbody');
+            tbody.innerHTML = '';
+            let subtotal = 0;
+
+            invData.items.forEach((item) => {
+                const itemTotal = item.price * item.qty;
+                subtotal += itemTotal;
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-200">
+                        <td class="py-3 text-sm font-medium pr-2">${item.title}</td>
+                        <td class="py-3 text-sm text-left">Rp ${formatRp(item.price)}</td>
+                        <td class="py-3 text-sm text-center">${item.qty}</td>
+                        <td class="py-3 text-sm text-right font-bold">Rp ${formatRp(itemTotal)}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('disp-inv-subtotal').innerText = 'Rp ' + formatRp(subtotal);
+            document.getElementById('disp-inv-shipping').innerText = 'Rp ' + formatRp(invData.shipping);
+            document.getElementById('disp-inv-total').innerText = 'Rp ' + formatRp(subtotal + Number(invData.shipping));
+        }
+
+        // --- 5. Royalty Logic ---
+        function renderRoyAdminItems() {
+            const container = document.getElementById('admin-roy-items-container');
+            container.innerHTML = '';
+            royData.items.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "bg-purple-50 p-3 rounded-lg border border-purple-200 relative";
+                itemDiv.innerHTML = `
+                    <button onclick="removeRoyItem(${index})" class="absolute top-2 right-2 text-red-500 hover:text-red-700 bg-red-100 hover:bg-red-200 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-sm">✕</button>
+                    <div class="mb-2 pr-8">
+                        <label class="text-xs font-semibold text-gray-600">Judul Buku ${index + 1}</label>
+                        <input type="text" value="${item.title}" oninput="updateRoyItem(${index}, 'title', this.value)" class="w-full border p-2 text-sm rounded mt-1 outline-purple-500 bg-white" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Terjual (Eks)</label>
+                            <input type="number" value="${item.qty}" oninput="updateRoyItem(${index}, 'qty', this.value)" class="w-full border p-2 text-sm rounded mt-1 outline-purple-500 bg-white" />
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-600">Royalti / Eks (Rp)</label>
+                            <input type="number" value="${item.royaltyPerQty}" oninput="updateRoyItem(${index}, 'royaltyPerQty', this.value)" class="w-full border p-2 text-sm rounded mt-1 outline-purple-500 bg-white" />
+                        </div>
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function addRoyItem() { royData.items.push({ title: '', royaltyPerQty: 0, qty: 1 }); renderRoyAdminItems(); renderRoyalty(); }
+        function removeRoyItem(index) { royData.items.splice(index, 1); renderRoyAdminItems(); renderRoyalty(); }
+        function updateRoyItem(index, field, value) { royData.items[index][field] = field === 'title' ? value : Number(value); renderRoyalty(); }
+
+        function renderRoyalty() {
+            const fields = ['receiptNo', 'date', 'authorName', 'period', 'bankName', 'bankAccount', 'bankAccountName', 'tax'];
+            fields.forEach(f => {
+                document.getElementById(`input-roy-${f}`).value = royData[f];
+                if(document.getElementById(`disp-roy-${f}`)) {
+                    document.getElementById(`disp-roy-${f}`).innerText = f==='tax'? 'Rp ' + formatRp(royData[f]) : royData[f];
+                }
+            });
+
+            const tbody = document.getElementById('disp-roy-items-tbody');
+            tbody.innerHTML = '';
+            let subtotal = 0;
+
+            royData.items.forEach((item) => {
+                const itemTotal = item.royaltyPerQty * item.qty;
+                subtotal += itemTotal;
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-100">
+                        <td class="py-3 text-sm font-medium pr-2">${item.title}</td>
+                        <td class="py-3 text-sm text-center">${item.qty}</td>
+                        <td class="py-3 text-sm text-right">Rp ${formatRp(item.royaltyPerQty)}</td>
+                        <td class="py-3 text-sm text-right font-bold text-purple-800">Rp ${formatRp(itemTotal)}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('disp-roy-subtotal').innerText = 'Rp ' + formatRp(subtotal);
+            const net = subtotal - Number(royData.tax);
+            document.getElementById('disp-roy-total').innerText = 'Rp ' + formatRp(net);
+        }
+
+        // --- 6. Input Listeners Setup ---
+        const invFields = ['invoiceNo', 'date', 'dueDate', 'customerName', 'address', 'notes', 'shipping', 'bankName', 'bankAccount', 'bankAccountName'];
+        invFields.forEach(key => {
+            document.getElementById(`input-inv-${key}`).addEventListener('input', (e) => { invData[key] = e.target.value; renderInvoice(); });
         });
 
-        if(chartInstanceCashflow) chartInstanceCashflow.destroy();
-        chartInstanceCashflow = new Chart(document.getElementById('pdfChartCashflow'), {
-            type: 'line',
-            data: { labels: labelsMonth, datasets: [{ label: 'Saldo Kas', data: cumulative, borderColor: '#1E3A5F', backgroundColor: 'rgba(30,58,95,0.1)', fill: true, tension: 0.4 }]},
-            options: { animation: false, responsive: true, maintainAspectRatio: false }
+        const royFields = ['receiptNo', 'date', 'authorName', 'period', 'bankName', 'bankAccount', 'bankAccountName', 'tax'];
+        royFields.forEach(key => {
+            document.getElementById(`input-roy-${key}`).addEventListener('input', (e) => { royData[key] = e.target.value; renderRoyalty(); });
         });
 
-        // 3. Proses html2pdf
-        await new Promise(resolve => setTimeout(resolve, 500)); // Tunggu grafik selesai dirender
+        // --- 7. Download PDF ---
+        function downloadPDF() {
+            const btn = document.getElementById('btn-download-pdf');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = "Mempersiapkan PDF..."; 
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            
+            const activeId = currentTab === 'invoice' ? 'preview-invoice' : 'preview-royalty';
+            const element = document.getElementById(activeId);
+            const fileName = currentTab === 'invoice' ? `${invData.invoiceNo || 'Invoice'}.pdf` : `${royData.receiptNo || 'Royalti'}.pdf`;
+            
+            const opt = {
+                margin:       0, 
+                filename:     fileName,
+                image:        { type: 'jpeg', quality: 1 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
 
-        const opt = {
-            margin:       0,
-            filename:     `Laporan_Keuangan_NaraPustaka_${periodeText.replace(/ /g, "_")}.pdf`,
-            image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 3, useCORS: true, logging: false, windowWidth: 794 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }).catch(err => {
+                console.error("Error generating PDF", err);
+                alert("Gagal membuat PDF. Coba muat ulang halaman.");
+                btn.innerHTML = originalText;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            });
+        }
 
-        html2pdf().set(opt).from(container).save().then(() => {
-            showLoading(false);
-            showToast("PDF Profesional Berhasil Diunduh!", "success");
-        }).catch(err => {
-            console.error(err); showLoading(false); showToast("Terjadi kesalahan sistem PDF.", "error");
-        });
-    }
-
-    // --- EXPORT EXCEL (Tetap Sama) ---
-<!-- ... existing code ... -->
+        // --- 8. Initialize ---
+        renderInvAdminItems();
+        renderInvoice();
+        renderRoyAdminItems();
+        renderRoyalty();
+        applyLogoToPreview();
+    </script>
+</body>
+</html>
