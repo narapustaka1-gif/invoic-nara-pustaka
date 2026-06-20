@@ -1,459 +1,287 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nara Pustaka Invoice Generator</title>
-  
-  <!-- Memuat Tailwind CSS untuk Styling -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Memuat React dan ReactDOM (Versi Stabil dari cdnjs) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-  
-  <!-- Memuat Babel Standalone (Versi Stabil dari cdnjs) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin></script>
-
-  <!-- Memuat html2pdf secara statis di head untuk mencegah error appendChild saat runtime -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin></script>
-  
-  <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    /* Clip path dipertahankan, berfungsi baik di html2pdf versi terbaru */
-    .clip-slant { clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); }
-    .clip-slant-reverse { clip-path: polygon(5% 0, 100% 0, 100% 100%, 0 100%); }
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-  </style>
+<!-- ... existing code ... -->
+        /* Pengaturan Khusus PDF Container */
+        .pdf-header { border-bottom: 2px solid #1E3A5F; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .pdf-header h2 { margin: 0; line-height: 1; }
+        .pdf-header p { margin: 4px 0 0 0; }
+        .pdf-footer { border-top: 1px solid #e2e8f0; padding-top: 12px; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
+        table.pdf-table { width: 100%; border-collapse: collapse; }
+        table.pdf-table th { background-color: #1E3A5F; color: white; padding: 10px 12px; font-weight: 600; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #1E3A5F; }
+        table.pdf-table td { padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 12px; color: #334155; }
+        table.pdf-table tr:nth-child(even) { background-color: #F8FAFC; }
+    </style>
 </head>
-<body class="bg-gray-100">
-
-  <!-- Tempat React akan dirender -->
-  <div id="root"></div>
-
-  <!-- Kode Aplikasi Utama -->
-  <script type="text/babel" data-presets="env,react">
-    const { useState, useEffect } = React;
-
-    // --- Komponen Ikon ---
-    const Printer = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect width="12" height="8" x="6" y="14" rx="1"/></svg>;
-    const Phone = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
-    const Mail = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>;
-    const Plus = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
-    const Trash2 = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
-    const Save = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
-    const CheckCircle = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>;
-    const ImageIcon = ({ size=24, className="" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
-
-    function App() {
-      const getToday = () => new Date().toISOString().split('T')[0];
-      const getDueDate = () => {
-        const due = new Date();
-        due.setDate(due.getDate() + 5);
-        return due.toISOString().split('T')[0];
-      };
-
-      const [invoiceData, setInvoiceData] = useState({
-        invoiceNo: `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 1000)}`,
-        date: getToday(),
-        dueDate: getDueDate(),
-        customerName: 'Ahmad Dahlan',
-        notes: 'Dikirim ke:\nJl. Sudirman No. 45, Jakarta Selatan\n(Mohon dipacking kayu)',
-        shippingCost: 25000,
-        logo: null, // State untuk menyimpan logo yang diunggah
-      });
-
-      const [items, setItems] = useState([
-        { id: Date.now(), description: 'Buku Mahir Pemrograman Web', qty: 2, price: 150000 }
-      ]);
-
-      const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-      const [isSaving, setIsSaving] = useState(false);
-      const [isPrinting, setIsPrinting] = useState(false);
-      const [scale, setScale] = useState(1);
-
-      useEffect(() => {
-        const updateScale = () => {
-          // Basis 794px untuk render A4 agar sangat presisi
-          if (window.innerWidth < 1024) {
-            const newScale = (window.innerWidth - 32) / 794; 
-            setScale(newScale < 1 ? newScale : 1);
-          } else {
-            setScale(1);
-          }
-        };
-        updateScale();
-        window.addEventListener('resize', updateScale);
-        return () => window.removeEventListener('resize', updateScale);
-      }, []);
-
-      const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) * Number(item.price)), 0);
-      const total = subtotal + Number(invoiceData.shippingCost);
-
-      const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setInvoiceData({ ...invoiceData, [name]: value });
-      };
-
-      // Handler untuk mengunggah logo
-      const handleLogoUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setInvoiceData({ ...invoiceData, logo: reader.result });
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-
-      const handleItemChange = (index, field, value) => {
-        const newItems = [...items];
-        newItems[index][field] = value;
-        setItems(newItems);
-      };
-
-      const addItem = () => {
-        if (items.length >= 8) {
-          showToast('Batas maksimum baris tercapai untuk 1 lembar A4.', 'error');
-          return;
-        }
-        setItems([...items, { id: Date.now(), description: '', qty: 1, price: 0 }]);
-      };
-
-      const removeItem = (index) => {
-        if (items.length > 1) {
-          const newItems = items.filter((_, i) => i !== index);
-          setItems(newItems);
-        }
-      };
-
-      const showToast = (message, type = 'success') => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-      };
-
-      // LOGIKA CETAK PDF - Diperbaiki total untuk 1 Lembar A4
-      const handlePrint = async () => {
-        setIsPrinting(true);
-        showToast('Menyiapkan 1 Lembar PDF...', 'success');
-
-        try {
-          const html2pdf = window.html2pdf;
-          if (!html2pdf) {
-            throw new Error('Pustaka pdf belum termuat di browser.');
-          }
-
-          const wrapper = document.getElementById('invoice-wrapper');
-          const element = document.getElementById('invoice-capture');
-          
-          // MENGHILANGKAN SKALA PRATINJAU SEMENTARA
-          // Ini sangat krusial agar html2canvas membaca ukuran aktual elemen dan posisinya tidak meleset
-          const originalTransform = wrapper.style.transform;
-          wrapper.style.transform = 'none';
-
-          // Memastikan halaman digulir ke paling atas untuk menghindari offset canvas
-          window.scrollTo(0, 0);
-
-          const opt = {
-            margin:       0,
-            filename:     `${invoiceData.invoiceNo}.pdf`,
-            image:        { type: 'jpeg', quality: 1 }, 
-            html2canvas:  { 
-              scale: 2, 
-              useCORS: true, 
-              scrollY: 0,
-              scrollX: 0
-            },
-            // Format statis ke Pixel A4
-            jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' }
-          };
-
-          await html2pdf().set(opt).from(element).save();
-          
-          // MENGEMBALIKAN SKALA PRATINJAU
-          wrapper.style.transform = originalTransform;
-
-          showToast('PDF berhasil diunduh!', 'success');
-        } catch (error) {
-          console.error(error);
-          showToast('Gagal membuat PDF. Coba segarkan halaman.', 'error');
-        } finally {
-          setIsPrinting(false);
-        }
-      };
-
-      const saveToGoogleSheets = async () => {
-        setIsSaving(true);
-        setTimeout(() => {
-          setIsSaving(false);
-          showToast('Simulasi: Data berhasil disimpan!', 'success');
-        }, 1000);
-      };
-
-      const formatDateId = (dateString) => {
-        if (!dateString) return '';
-        const dateObj = new Date(dateString);
-        return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-      };
-
-      return (
-        <div className="min-h-screen font-sans text-gray-800 flex flex-col lg:flex-row relative w-full overflow-x-hidden">
-          
-          {toast.show && (
-            <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white font-medium transition-all duration-300 transform translate-y-0 opacity-100 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
-              <CheckCircle size={20} />
-              {toast.message}
-            </div>
-          )}
-
-          {/* PANEL ADMIN */}
-          <div className="w-full lg:w-1/3 bg-white lg:border-r border-gray-200 p-4 lg:p-6 lg:overflow-y-auto lg:h-screen shadow-md z-10 relative custom-scrollbar">
-            <div className="flex items-center gap-3 mb-6 border-b pb-4">
-              <div className="bg-red-600 p-2 rounded-lg text-white">
-                <Printer size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Admin Panel</h2>
-                <p className="text-xs text-gray-500">Nara Pustaka Invoice Generator</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              
-              {/* KOLOM UPLOAD LOGO (Dikembalikan) */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
-                 <div>
-                   <h3 className="text-sm font-bold text-gray-700">Logo Invoice</h3>
-                   <p className="text-xs text-gray-500">Pilih gambar untuk header</p>
-                 </div>
-                 <label className="cursor-pointer bg-white border border-gray-300 p-2 rounded text-gray-600 hover:bg-gray-50 transition">
-                   <ImageIcon size={18} />
-                   <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                 </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">No. Invoice</label>
-                  <input type="text" name="invoiceNo" value={invoiceData.invoiceNo} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+<!-- ... existing code ... -->
+                            <tbody id="transactionTable" class="text-sm font-medium text-slate-700 divide-y divide-slate-100">
+                                <tr><td colspan="5" class="py-8 text-center"><i class="fa-solid fa-spinner animate-spin text-nara-blue text-xl"></i></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal</label>
-                  <input type="date" name="date" value={invoiceData.date} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Pembeli</label>
-                <input type="text" name="customerName" value={invoiceData.customerName} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Catatan / Alamat Tujuan</label>
-                <textarea name="notes" value={invoiceData.notes} onChange={handleInputChange} rows="2" className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"></textarea>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal Jatuh Tempo</label>
-                <input type="date" name="dueDate" value={invoiceData.dueDate} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h3 className="text-sm font-bold text-gray-700 mb-3">Detail Pesanan</h3>
-                
-                {items.map((item, index) => (
-                  <div key={item.id} className="mb-3 bg-white p-3 border border-gray-100 rounded shadow-sm relative">
-                    {items.length > 1 && (
-                      <button onClick={() => removeItem(index)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 z-10 bg-white rounded">
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                    <div className="mb-2">
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Deskripsi Item</label>
-                      <input type="text" value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} placeholder="Contoh: Buku..." className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Harga (Rp)</label>
-                        <input type="number" value={item.price} onChange={(e) => handleItemChange(index, 'price', e.target.value)} className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Jumlah</label>
-                        <input type="number" value={item.qty} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} className="w-full border-b px-2 py-1 text-sm focus:outline-none focus:border-red-500" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <button onClick={addItem} className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg text-sm font-semibold hover:border-red-400 hover:text-red-500 transition flex items-center justify-center gap-1 mb-4">
-                  <Plus size={16} /> Tambah Baris
-                </button>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Ongkos Kirim (Rp)</label>
-                  <input type="number" name="shippingCost" value={invoiceData.shippingCost} onChange={handleInputChange} className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500 bg-white" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <button onClick={saveToGoogleSheets} disabled={isSaving} className={`w-full py-3 px-2 rounded-lg font-bold flex items-center justify-center gap-1 transition duration-200 text-xs sm:text-sm ${isSaving ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-200'}`}>
-                  <Save size={16} /> Simpan
-                </button>
-                <button onClick={handlePrint} disabled={isPrinting} className={`w-full font-bold py-3 px-2 rounded-lg transition duration-200 flex items-center justify-center gap-1 text-xs sm:text-sm shadow-lg shadow-red-200 text-white ${isPrinting ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
-                  <Printer size={16} /> Cetak PDF
-                </button>
-              </div>
             </div>
-          </div>
-
-          {/* AREA PREVIEW INVOICE */}
-          <div className="w-full lg:w-2/3 flex justify-center bg-gray-200 pt-6 pb-20 lg:p-10 lg:overflow-y-auto lg:h-screen">
-            
-            <div className="relative flex justify-center w-full" style={{ height: window.innerWidth < 1024 ? `${1123 * scale}px` : 'auto' }}>
-              
-              {/* WRAPPER UNTUK SKALA SAJA (Supaya PDF tidak ikut mengecil) */}
-              <div id="invoice-wrapper" className="origin-top" style={{ transform: `scale(${scale})` }}>
-                
-                {/* KERTAS INVOICE (Tanpa Inline Transform) */}
-                <div id="invoice-capture" className="invoice-box bg-white w-[794px] h-[1123px] overflow-hidden shadow-2xl relative flex flex-col">
-                  
-                  <div className="bg-[#1a1c23] pt-12 pb-10 px-12 relative flex justify-between items-start shrink-0">
-                    <div className="text-white z-10 max-w-[50%]">
-                      <div className="flex items-center gap-4">
-                        {/* Render Logo yang Diupload atau Default Inisial 'N' */}
-                        {invoiceData.logo ? (
-                          <img src={invoiceData.logo} alt="Logo" className="h-16 w-auto max-w-[150px] object-contain bg-white p-1 rounded" />
-                        ) : (
-                          <div className="w-12 h-12 bg-red-600 flex justify-center items-center rounded-sm font-bold text-2xl italic">N</div>
-                        )}
-                        <div>
-                          <h1 className="text-2xl font-bold tracking-wider">NARA <span className="text-red-500">PUSTAKA</span></h1>
-                          <p className="text-[10px] text-gray-400 tracking-widest uppercase">Penerbit & Distributor</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right text-white z-10">
-                      <h2 className="text-4xl font-bold text-red-600 tracking-widest mb-4 uppercase">Invoice</h2>
-                      <table className="text-xs text-gray-300 ml-auto">
-                        <tbody>
-                          <tr>
-                            <td className="pr-4 py-1 text-right">Invoice Number:</td>
-                            <td className="text-white font-medium text-right">{invoiceData.invoiceNo}</td>
-                          </tr>
-                          <tr>
-                            <td className="pr-4 py-1 text-right">Invoice Date:</td>
-                            <td className="text-white font-medium text-right">{formatDateId(invoiceData.date)}</td>
-                          </tr>
-                          <tr>
-                            <td className="pr-4 py-1 text-right text-red-400">Due Date:</td>
-                            <td className="text-red-400 font-medium text-right">{formatDateId(invoiceData.dueDate)}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="absolute -bottom-5 left-0 w-3/5 h-6 bg-red-600 clip-slant"></div>
-                  </div>
-
-                  <div className="px-12 py-10 flex-grow relative z-10">
-                    <div className="flex justify-between mb-8">
-                      <div className="w-1/2 pr-4">
-                        <h3 className="text-red-600 font-bold text-sm mb-2 uppercase tracking-wide">Invoice To:</h3>
-                        <h4 className="text-xl font-bold text-gray-800 mb-1 line-clamp-1">{invoiceData.customerName}</h4>
-                        <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed line-clamp-3">{invoiceData.notes}</p>
-                      </div>
-                      <div className="w-1/3">
-                        <h3 className="text-red-600 font-bold text-sm mb-2 uppercase tracking-wide">Payment Method</h3>
-                        <div className="text-xs text-gray-800 leading-relaxed bg-gray-50 p-3 rounded border-l-2 border-red-600">
-                          <p className="mb-1 text-gray-500">Transfer Bank</p>
-                          <p>Account No: <span className="font-bold text-sm ml-1">111-047-0742</span></p>
-                          <p>Account Name: <span className="font-bold ml-1">Deby Verona</span></p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <table className="w-full text-left mb-8 border-collapse">
-                      <thead>
-                        <tr className="bg-red-600 text-white text-xs uppercase tracking-wider">
-                          <th className="py-3 px-4 w-[50%]">Item Description</th>
-                          <th className="py-3 px-4 text-center">Price</th>
-                          <th className="py-3 px-4 text-center">Qty</th>
-                          <th className="py-3 px-4 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-sm">
-                        {items.map((item, index) => (
-                          <tr key={item.id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'}`}>
-                            <td className="py-3 px-4 text-gray-800 font-medium">{item.description || '-'}</td>
-                            <td className="py-3 px-4 text-gray-600 text-center">Rp {Number(item.price).toLocaleString('id-ID')}</td>
-                            <td className="py-3 px-4 text-gray-600 text-center">{item.qty}</td>
-                            <td className="py-3 px-4 text-gray-800 text-right font-medium">Rp {(Number(item.qty) * Number(item.price)).toLocaleString('id-ID')}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    <div className="flex justify-between items-start">
-                      <div className="w-1/2 pr-8">
-                        <h3 className="font-bold text-gray-800 mb-4 text-lg">Thank You</h3>
-                        <div className="space-y-2 text-xs text-gray-600">
-                          <p className="flex items-center gap-2"><Phone size={14} className="text-red-600" /> +62 812-3456-7890</p>
-                          <p className="flex items-center gap-2"><Mail size={14} className="text-red-600" /> narapustaka1@gmail.com</p>
-                        </div>
-                      </div>
-
-                      <div className="w-[45%]">
-                        <div className="flex justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
-                          <span className="font-medium">Subtotal:</span>
-                          <span>Rp {subtotal.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div className="flex justify-between py-2 text-sm text-gray-600">
-                          <span className="font-medium">Ongkir:</span>
-                          <span>Rp {Number(invoiceData.shippingCost).toLocaleString('id-ID')}</span>
-                        </div>
-                        
-                        <div className="flex justify-between py-4 mt-2 bg-red-600 text-white font-bold px-4 text-lg rounded-sm shadow-md">
-                          <span>Total:</span>
-                          <span>Rp {total.toLocaleString('id-ID')}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-12 pb-8 mt-auto relative shrink-0">
-                    <div className="flex justify-between items-end mb-6">
-                      <div className="w-3/5 pr-10">
-                        <h4 className="font-bold text-gray-800 text-sm mb-2">Terms & Conditions:</h4>
-                        <p className="text-[10px] text-gray-500 leading-relaxed text-justify">
-                          Pembayaran harap ditransfer secara penuh ke rekening yang tertera di atas. 
-                          Sertakan nomor invoice pada berita acara transfer. Barang pesanan akan dikirim setelah 
-                          dana dikonfirmasi masuk. Kesalahan alamat yang diberikan oleh pembeli di luar tanggung jawab kami.
-                        </p>
-                      </div>
-                      <div className="w-1/3 text-center pt-8">
-                        <div className="border-b border-gray-400 mb-2 w-full"></div>
-                        <p className="text-xs font-bold text-gray-800">Admin Nara Pustaka</p>
-                        <p className="text-[10px] text-gray-500">Authorized Signature</p>
-                      </div>
-                    </div>
-                    <div className="absolute bottom-0 left-0 w-full h-10 bg-[#1a1c23]">
-                      <div className="absolute bottom-0 right-0 w-1/3 h-10 bg-red-600 clip-slant-reverse"></div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-            </div>
-          </div>
         </div>
-      );
+    </div>
+</main>
+
+<!-- === TEMPLATE HIDDEN PDF PRO === -->
+<!-- Diperbaiki: Dimensi absolut A4 untuk presisi cetak -->
+<div class="absolute top-0 left-[-10000px] pointer-events-none" style="z-index:-9999;">
+    <div id="pdfProContainer" class="w-[210mm] bg-white font-sans">
+        <!-- Isi PDF akan di-generate dinamis oleh JavaScript sebelum dicetak -->
+    </div>
+</div>
+
+<script>
+    // --- KONFIGURASI API SPREADSHEET ---
+<!-- ... existing code ... -->
+    // =======================================================================
+    // --- GENERATOR PDF SUPER PREMIUM ---
+    // =======================================================================
+    async function exportToPDF() {
+        if(currentFilterData.length === 0) {
+            showToast("Tidak ada data untuk dicetak!", "error"); return;
+        }
+        showLoading(true, "Menyiapkan Dokumen...", "Menyusun struktur laporan PDF Profesional...");
+
+        // 1. Persiapan Data
+        let incomeData = []; let expenseData = [];
+        let totalIncome = 0; let totalExpense = 0;
+        let monthlyStats = {}; let categoryStats = {};
+        
+        let sortedData = [...currentFilterData].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        sortedData.forEach(t => {
+            const amt = parseFloat(t.amount);
+            const mKey = t.date.substring(0, 7); // YYYY-MM
+            
+            if(!monthlyStats[mKey]) monthlyStats[mKey] = { in: 0, out: 0 };
+            
+            if (t.type === 'income') {
+                incomeData.push(t); totalIncome += amt;
+                monthlyStats[mKey].in += amt;
+            } else {
+                expenseData.push(t); totalExpense += amt;
+                monthlyStats[mKey].out += amt;
+                let cat = t.desc.split(' ')[0] || 'Lainnya';
+                categoryStats[cat] = (categoryStats[cat] || 0) + amt;
+            }
+        });
+
+        const netProfit = totalIncome - totalExpense;
+        const tax = totalIncome * 0.005;
+        const marginLaba = totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(1) : 0;
+        const rasioBiaya = totalIncome > 0 ? ((totalExpense / totalIncome) * 100).toFixed(1) : 0;
+        
+        let topExpenseCat = Object.keys(categoryStats).sort((a, b) => categoryStats[b] - categoryStats[a])[0] || '-';
+        let bestMonth = Object.keys(monthlyStats).sort((a, b) => monthlyStats[b].in - monthlyStats[a].in)[0] || '-';
+
+        const filterYear = document.getElementById('filterYear').value;
+        const filterMonth = document.getElementById('filterMonth').value;
+        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        let periodeText = filterYear !== 'all' ? (filterMonth !== 'all' ? `${monthNames[parseInt(filterMonth)-1]} ${filterYear}` : `Tahun ${filterYear}`) : "Seluruh Periode";
+        let dateToday = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        // Fungsi Wrapper Halaman Presisi A4
+        const getPageWrapper = (content, title, pageNum, isFirst = false) => `
+            <div class="${isFirst ? '' : 'html2pdf__page-break'} w-[210mm] min-h-[297mm] p-[15mm] box-border bg-white flex flex-col relative mx-auto">
+                <div class="pdf-header text-[#1E3A5F]">
+                    <div>
+                        <h2 class="text-[22px] font-black tracking-tight"><i class="fa-solid fa-book-open-reader mr-2"></i>NARA PUSTAKA</h2>
+                        <p class="text-[11px] text-slate-500 font-medium">Laporan: ${title} | Periode: ${periodeText}</p>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold bg-[#1E3A5F] text-white py-1.5 px-3 rounded-full uppercase tracking-widest shadow-sm">Dokumen Rahasia</span>
+                    </div>
+                </div>
+                
+                <div class="flex-1 mt-6 mb-6 w-full">
+                    ${content}
+                </div>
+                
+                <div class="pdf-footer mt-auto w-full">
+                    <span>Dicetak Otomatis pada ${dateToday}</span>
+                    <span>Halaman ${pageNum}</span>
+                </div>
+            </div>
+        `;
+
+        const container = document.getElementById('pdfProContainer');
+        container.innerHTML = '';
+
+        // --- KONTEN HALAMAN ---
+        let content1 = `
+            <div class="text-center mb-10 mt-4">
+                <h1 class="text-[26px] font-black text-[#1E3A5F] uppercase tracking-widest leading-tight">Laporan Keuangan & Perpajakan</h1>
+                <p class="text-base text-slate-600 mt-2 font-medium">Nara Pustaka (Deby Verona)</p>
+            </div>
+            <div class="grid grid-cols-2 gap-6 mb-8">
+                <div class="bg-[#F8FAFC] border border-slate-200 p-6 rounded-2xl shadow-sm"><div class="text-emerald-500 mb-2"><i class="fa-solid fa-arrow-trend-up text-3xl"></i></div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Pendapatan</p><p class="text-2xl font-black text-[#1E3A5F] mt-1">${formatRupiah(totalIncome)}</p></div>
+                <div class="bg-[#F8FAFC] border border-slate-200 p-6 rounded-2xl shadow-sm"><div class="text-rose-500 mb-2"><i class="fa-solid fa-arrow-trend-down text-3xl"></i></div><p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Pengeluaran</p><p class="text-2xl font-black text-[#1E3A5F] mt-1">${formatRupiah(totalExpense)}</p></div>
+                <div class="bg-[#1E3A5F] text-white p-6 rounded-2xl shadow-md"><div class="text-sky-300 mb-2"><i class="fa-solid fa-wallet text-3xl"></i></div><p class="text-[11px] font-bold text-sky-200 uppercase tracking-wider">Laba Bersih / Saldo Akhir</p><p class="text-2xl font-black mt-1">${formatRupiah(netProfit)}</p></div>
+                <div class="bg-amber-50 border border-amber-200 p-6 rounded-2xl shadow-sm"><div class="text-amber-500 mb-2"><i class="fa-solid fa-building-columns text-3xl"></i></div><p class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Estimasi Pajak UMKM (0.5%)</p><p class="text-2xl font-black text-amber-900 mt-1">${formatRupiah(tax)}</p></div>
+            </div>
+            <div class="border border-slate-200 p-5 rounded-2xl shadow-sm bg-white">
+                <h4 class="text-sm font-bold text-slate-700 mb-4 text-center tracking-wide">Grafik Ringkasan Pemasukan & Pengeluaran</h4>
+                <div style="height: 250px; width: 100%; position: relative;"><canvas id="pdfChartSummary"></canvas></div>
+            </div>
+        `;
+
+        let page2Rows = incomeData.map(t => `<tr><td>${t.date}</td><td>${t.desc}</td><td>Pemasukan</td><td align="right" class="font-bold">${formatRupiah(t.amount)}</td></tr>`).join('');
+        let content2 = `
+            <table class="w-full text-sm pdf-table border-collapse">
+                <thead><tr><th width="20%">Tanggal</th><th width="45%">Deskripsi</th><th width="15%">Kategori</th><th width="20%" class="text-right">Nominal</th></tr></thead>
+                <tbody>
+                    ${page2Rows || '<tr><td colspan="4" class="text-center italic py-4">Tidak ada data pendapatan</td></tr>'}
+                    <tr class="bg-emerald-50"><td colspan="3" class="font-bold text-right text-[#1E3A5F]">TOTAL PENDAPATAN</td><td class="font-black text-right text-emerald-700">${formatRupiah(totalIncome)}</td></tr>
+                </tbody>
+            </table>
+        `;
+
+        let page3Rows = expenseData.map(t => `<tr><td>${t.date}</td><td>${t.desc}</td><td>Pengeluaran</td><td align="right" class="font-bold">${formatRupiah(t.amount)}</td></tr>`).join('');
+        let content3 = `
+            <table class="w-full text-sm pdf-table border-collapse">
+                <thead><tr><th width="20%">Tanggal</th><th width="45%">Deskripsi</th><th width="15%">Kategori</th><th width="20%" class="text-right">Nominal</th></tr></thead>
+                <tbody>
+                    ${page3Rows || '<tr><td colspan="4" class="text-center italic py-4">Tidak ada data pengeluaran</td></tr>'}
+                    <tr class="bg-rose-50"><td colspan="3" class="font-bold text-right text-[#1E3A5F]">TOTAL PENGELUARAN</td><td class="font-black text-right text-rose-700">${formatRupiah(totalExpense)}</td></tr>
+                </tbody>
+            </table>
+        `;
+
+        let content4 = `
+            <div class="border border-[#1E3A5F] rounded-xl overflow-hidden mt-4">
+                <div class="bg-[#1E3A5F] text-white p-4 text-center font-bold text-lg tracking-widest">FORMAT LABA RUGI STANDAR</div>
+                <div class="p-8 space-y-6">
+                    <div class="flex justify-between border-b border-slate-200 pb-2"><span class="font-semibold text-slate-700 text-lg">Pendapatan Operasional</span><span class="font-bold text-lg">${formatRupiah(totalIncome)}</span></div>
+                    <div class="flex justify-between border-b border-slate-200 pb-2"><span class="font-semibold text-slate-700 text-lg pl-6">(-) Total Pengeluaran / Beban</span><span class="font-bold text-rose-600 text-lg">(${formatRupiah(totalExpense)})</span></div>
+                    <div class="flex justify-between bg-slate-50 p-4 rounded-lg mt-4 border border-slate-200"><span class="font-black text-[#1E3A5F] text-xl uppercase">Laba Bersih Usaha</span><span class="font-black text-[#1E3A5F] text-xl">${formatRupiah(netProfit)}</span></div>
+                </div>
+            </div>
+        `;
+
+        let content5 = `
+            <table class="w-full text-sm pdf-table border-collapse mb-8">
+                <thead><tr><th>Uraian Arus Kas</th><th class="text-right">Nominal</th></tr></thead>
+                <tbody>
+                    <tr><td class="font-semibold">Saldo Awal Periode</td><td align="right">Rp 0</td></tr>
+                    <tr class="text-emerald-700"><td class="font-semibold pl-4">(+) Kas Masuk (Pendapatan)</td><td align="right">${formatRupiah(totalIncome)}</td></tr>
+                    <tr class="text-rose-700"><td class="font-semibold pl-4">(-) Kas Keluar (Pengeluaran)</td><td align="right">(${formatRupiah(totalExpense)})</td></tr>
+                    <tr class="bg-[#F8FAFC]"><td class="font-black text-[#1E3A5F] text-base uppercase">Saldo Akhir Kas</td><td align="right" class="font-black text-[#1E3A5F] text-base">${formatRupiah(netProfit)}</td></tr>
+                </tbody>
+            </table>
+            <div class="border border-slate-200 p-4 rounded-2xl">
+                <h4 class="text-sm font-bold text-slate-700 mb-2 text-center">Tren Saldo Kas</h4>
+                <div style="height: 200px; width: 100%; position: relative;"><canvas id="pdfChartCashflow"></canvas></div>
+            </div>
+        `;
+
+        let content6 = `
+            <div class="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl mb-8">
+                <h4 class="font-bold text-amber-800 text-lg flex items-center gap-2"><i class="fa-solid fa-circle-info"></i> Informasi Perpajakan</h4>
+                <p class="text-sm text-amber-700 mt-2 leading-relaxed">Nilai pajak yang tertera merupakan hasil perhitungan otomatis berdasarkan data transaksi. Perhitungan merujuk pada regulasi <b>PPh Final UMKM (PP 55/2022) sebesar 0,5% dari peredaran bruto (Omzet)</b>.</p>
+            </div>
+            <table class="w-full text-base pdf-table border-collapse">
+                <thead><tr><th colspan="2" class="text-center text-lg tracking-widest">DASAR PERHITUNGAN PPh FINAL</th></tr></thead>
+                <tbody>
+                    <tr><td class="font-bold w-2/3 py-4">Total Omzet / Peredaran Bruto</td><td align="right" class="font-bold py-4">${formatRupiah(totalIncome)}</td></tr>
+                    <tr><td class="font-bold py-4">Dasar Pengenaan Pajak (DPP)</td><td align="right" class="font-bold py-4">${formatRupiah(totalIncome)}</td></tr>
+                    <tr><td class="font-bold py-4 text-slate-500">Tarif PPh Final UMKM</td><td align="right" class="font-bold py-4 text-slate-500">0.5%</td></tr>
+                    <tr class="bg-rose-50 border-y-2 border-rose-200"><td class="font-black text-rose-800 text-lg py-5 uppercase">Pajak PPh Terutang</td><td align="right" class="font-black text-rose-800 text-xl py-5">${formatRupiah(tax)}</td></tr>
+                </tbody>
+            </table>
+        `;
+
+        let content7 = `
+            <div class="grid grid-cols-2 gap-6 mt-4">
+                <div class="border border-slate-200 p-6 rounded-2xl text-center shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Persentase Laba (Margin)</p>
+                    <p class="text-4xl font-black text-emerald-600">${marginLaba}%</p>
+                </div>
+                <div class="border border-slate-200 p-6 rounded-2xl text-center shadow-sm">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Rasio Biaya Operasional</p>
+                    <p class="text-4xl font-black text-rose-600">${rasioBiaya}%</p>
+                </div>
+                <div class="border border-slate-200 p-6 rounded-2xl text-center shadow-sm col-span-2">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Kategori Pengeluaran Terbesar</p>
+                    <p class="text-2xl font-bold text-[#1E3A5F] capitalize">"${topExpenseCat}"</p>
+                </div>
+                <div class="bg-[#1E3A5F] text-white p-6 rounded-2xl text-center shadow-md">
+                    <p class="text-xs font-bold text-sky-200 uppercase tracking-widest mb-2">Bulan Terbaik</p>
+                    <p class="text-2xl font-black">${bestMonth !== '-' ? bestMonth : 'N/A'}</p>
+                </div>
+            </div>
+        `;
+
+        let content8 = `
+            <div class="flex-1 flex flex-col justify-center items-center text-center px-10 h-[200mm]">
+                <i class="fa-solid fa-file-signature text-6xl text-slate-200 mb-6"></i>
+                <p class="text-lg leading-relaxed font-medium text-slate-600">"Laporan Keuangan dan Perpajakan ini dibuat secara otomatis oleh <b>Sistem Keuangan Nara Pustaka</b> berdasarkan rekam data transaksi digital yang tercatat pada database cloud secara akurat dan transparan."</p>
+                
+                <div class="mt-20 w-full flex justify-end pr-10">
+                    <div class="text-center">
+                        <p class="text-sm text-slate-500 mb-16">Jakarta, ${dateToday}</p>
+                        <p class="font-black text-xl text-[#1E3A5F] underline underline-offset-4">Deby Verona</p>
+                        <p class="text-sm font-bold text-slate-500 mt-1">Pemilik Nara Pustaka</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Gabungkan seluruh halaman
+        container.innerHTML = 
+            getPageWrapper(content1, 'Ringkasan Eksekutif', 1, true) + 
+            getPageWrapper(content2, 'Rincian Pendapatan', 2) + 
+            getPageWrapper(content3, 'Rincian Pengeluaran', 3) + 
+            getPageWrapper(content4, 'Laporan Laba Rugi', 4) + 
+            getPageWrapper(content5, 'Laporan Arus Kas', 5) + 
+            getPageWrapper(content6, 'Perhitungan Pajak', 6) + 
+            getPageWrapper(content7, 'Analisis Bisnis', 7) + 
+            getPageWrapper(content8, 'Lembar Pengesahan', 8);
+
+        // 2. Render Grafik (Chart.js)
+        await new Promise(resolve => setTimeout(resolve, 100)); // Beri waktu DOM render
+        
+        let labelsMonth = Object.keys(monthlyStats).sort();
+        let dataIn = labelsMonth.map(m => monthlyStats[m].in);
+        let dataOut = labelsMonth.map(m => monthlyStats[m].out);
+        let cumulative = []; let current = 0;
+        labelsMonth.forEach(m => { current += (monthlyStats[m].in - monthlyStats[m].out); cumulative.push(current); });
+
+        if(chartInstanceSummary) chartInstanceSummary.destroy();
+        chartInstanceSummary = new Chart(document.getElementById('pdfChartSummary'), {
+            type: 'bar',
+            data: { labels: labelsMonth, datasets: [
+                { label: 'Pendapatan', data: dataIn, backgroundColor: '#10b981' },
+                { label: 'Pengeluaran', data: dataOut, backgroundColor: '#f43f5e' }
+            ]},
+            options: { animation: false, responsive: true, maintainAspectRatio: false }
+        });
+
+        if(chartInstanceCashflow) chartInstanceCashflow.destroy();
+        chartInstanceCashflow = new Chart(document.getElementById('pdfChartCashflow'), {
+            type: 'line',
+            data: { labels: labelsMonth, datasets: [{ label: 'Saldo Kas', data: cumulative, borderColor: '#1E3A5F', backgroundColor: 'rgba(30,58,95,0.1)', fill: true, tension: 0.4 }]},
+            options: { animation: false, responsive: true, maintainAspectRatio: false }
+        });
+
+        // 3. Proses html2pdf
+        await new Promise(resolve => setTimeout(resolve, 500)); // Tunggu grafik selesai dirender
+
+        const opt = {
+            margin:       0,
+            filename:     `Laporan_Keuangan_NaraPustaka_${periodeText.replace(/ /g, "_")}.pdf`,
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 3, useCORS: true, logging: false, windowWidth: 794 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(container).save().then(() => {
+            showLoading(false);
+            showToast("PDF Profesional Berhasil Diunduh!", "success");
+        }).catch(err => {
+            console.error(err); showLoading(false); showToast("Terjadi kesalahan sistem PDF.", "error");
+        });
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>
+    // --- EXPORT EXCEL (Tetap Sama) ---
+<!-- ... existing code ... -->
